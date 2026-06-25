@@ -108,7 +108,7 @@ function renderFooter() {
   document.getElementById('site-footer').innerHTML = `<div class="footer"><div class="container">
     <div class="footer-grid">
       <div>
-        <a href="#/" class="logo" style="color:#fff"><img class="mark" src="/img/logo.svg" alt="MBV — Movimento Brasil Verde" width="40" height="40"><span>MBV<small style="color:#8fbf9e">MOVIMENTO BRASIL VERDE</small></span></a>
+        <a href="#/" class="logo" style="color:#fff;gap:0" aria-label="MBV — Movimento Brasil Verde"><img src="https://movimentobrasilverde.com/wp-content/uploads/2026/01/logo_branca.webp" alt="Movimento Brasil Verde" style="height:46px;width:auto;max-width:240px" onerror="this.style.display='none';var l=document.getElementById('footLock');if(l)l.style.display='flex'"><span id="footLock" style="display:none;align-items:center;gap:10px"><img class="mark" src="/img/logo.svg" width="40" height="40"><span>MBV<small style="color:#8fbf9e">MOVIMENTO BRASIL VERDE</small></span></span></a>
         <p style="margin-top:14px;max-width:300px;font-size:13.5px;line-height:1.6">Marketplace de insumos que regeneram o solo e protegem o meio ambiente. Pague com Cartão, Pix ou o token <b style="color:var(--lime)">Neutrotan (NTR)</b>.</p>
         <div class="social">
           <a href="https://www.instagram.com/mbv.oficial/" target="_blank" rel="noopener" aria-label="Instagram">${socialIcon('instagram')}</a>
