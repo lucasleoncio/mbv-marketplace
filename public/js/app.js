@@ -52,7 +52,7 @@ function renderHeader() {
   </div></div>
   <div class="header"><div class="container">
     <div class="header-main">
-      <a href="#/" class="logo"><img class="mark" src="/img/logo.svg" alt="MBV — Movimento Brasil Verde" width="40" height="40"><span>MBV<small>MOVIMENTO BRASIL VERDE</small></span></a>
+      <a href="#/" class="logo"><img class="mark" src="https://movimentobrasilverde.com/wp-content/uploads/2026/04/cropped-Icone-MBV-270x270.png" alt="MBV — Movimento Brasil Verde" width="40" height="40" onerror="this.onerror=null;this.src='/img/logo.svg'"><span>MBV<small>MOVIMENTO BRASIL VERDE</small></span></a>
       <form class="search" id="searchForm">
         <input id="searchInput" placeholder="Buscar fertilizantes, sementes, energia solar…" />
         <button type="submit">${icon('search', 18)}</button>
@@ -775,7 +775,7 @@ Pages.auth = function (query) {
   const tab = query.tab === 'register' ? 'register' : 'login';
   const next = query.next || '#/';
   mount(`<div class="container"><div class="auth-wrap">
-    <a href="#/" class="logo" style="justify-content:center;margin-bottom:6px"><img class="mark" src="/img/logo.svg" alt="MBV — Movimento Brasil Verde" width="40" height="40"><span>MBV</span></a>
+    <a href="#/" class="logo" style="justify-content:center;margin-bottom:6px"><img class="mark" src="https://movimentobrasilverde.com/wp-content/uploads/2026/04/cropped-Icone-MBV-270x270.png" alt="MBV — Movimento Brasil Verde" width="40" height="40" onerror="this.onerror=null;this.src='/img/logo.svg'"><span>MBV</span></a>
     <div class="auth-tabs"><button data-tab="login" class="${tab === 'login' ? 'active' : ''}">Entrar</button><button data-tab="register" class="${tab === 'register' ? 'active' : ''}">Criar conta</button></div>
     <div id="authForm"></div>
   </div></div>`);
