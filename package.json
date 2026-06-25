@@ -1,0 +1,26 @@
+{
+  "name": "mbv-marketplace",
+  "version": "1.0.0",
+  "description": "MBV — Marketplace de agronegócio sustentável com token próprio MBV Coin (Cartão, Pix e cripto).",
+  "type": "commonjs",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "start:builtin": "node --experimental-sqlite server/index.js",
+    "dev": "node --watch server/index.js",
+    "seed": "node server/seed.js --reset"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.1"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.8.1"
+  }
+}

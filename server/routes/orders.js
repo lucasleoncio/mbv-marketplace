@@ -1,0 +1,176 @@
+const express = require('express');
+const db = require('../db');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { getCartItems, computeTotals, round2 } = require('../lib/pricing');
+const wallet = require('../lib/wallet');
+const { TOKEN } = require('../config');
+
+const router = express.Router();
+
+function orderWithItems(id) {
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  if (!order) return null;
+  order.items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(id);
+  return order;
+}
+
+// Gera um código Pix "copia e cola" SIMULADO (substitua por integração real: PSP/Banco/Mercado Pago).
+function fakePixCode(orderCode, amount) {
+  const payload = `MBV*${orderCode}*${amount.toFixed(2)}`;
+  return `00020126580014BR.GOV.BCB.PIX0136mbv-${orderCode.toLowerCase()}5204000053039865802BR5909MBV STORE6009SAO PAULO62070503${payload}6304ABCD`;
+}
+
+// Credita cashback em MBV Coin quando o pagamento é confirmado.
+function payCashback(order) {
+  if (order.cashback_mbv > 0) {
+    wallet.move(order.user_id, order.cashback_mbv, 'cashback',
+      `Cashback do pedido ${order.code}`, order.code);
+  }
+}
+
+// POST /api/orders  -> checkout
+router.post('/', requireAuth, (req, res) => {
+  const items = getCartItems(req.user.id);
+  if (!items.length) return res.status(400).json({ error: 'Seu carrinho está vazio.' });
+
+  // Estoque
+  for (const it of items) {
+    if (!it.active) return res.status(400).json({ error: `O produto "${it.name}" não está mais disponível.` });
+    if (it.quantity > it.stock) return res.status(400).json({ error: `Estoque insuficiente para "${it.name}".` });
+  }
+
+  const method = ['card', 'pix', 'mbv'].includes(req.body.payment_method) ? req.body.payment_method : null;
+  if (!method) return res.status(400).json({ error: 'Selecione uma forma de pagamento.' });
+
+  const ship = req.body.shipping || {};
+  for (const f of ['name', 'cep', 'address', 'city', 'state']) {
+    if (!String(ship[f] || '').trim()) return res.status(400).json({ error: 'Preencha todos os campos de entrega.' });
+  }
+
+  const totals = computeTotals(items, req.body.coupon_code, method);
+  if (totals.couponError) return res.status(400).json({ error: totals.couponError });
+
+  // Validação por forma de pagamento
+  if (method === 'card') {
+    const c = req.body.card || {};
+    const number = String(c.number || '').replace(/\s/g, '');
+    if (!/^\d{13,19}$/.test(number)) return res.status(400).json({ error: 'Número de cartão inválido.' });
+    if (!/^\d{3,4}$/.test(String(c.cvv || ''))) return res.status(400).json({ error: 'CVV inválido.' });
+    if (!/^\d{2}\/\d{2}$/.test(String(c.expiry || ''))) return res.status(400).json({ error: 'Validade inválida (MM/AA).' });
+    if (!String(c.name || '').trim()) return res.status(400).json({ error: 'Informe o nome impresso no cartão.' });
+    // NÃO armazenamos dados do cartão. Aqui entraria a chamada ao gateway (Stripe/Mercado Pago).
+  }
+  if (method === 'mbv') {
+    const u = db.prepare('SELECT mbv_balance FROM users WHERE id = ?').get(req.user.id);
+    if (u.mbv_balance < totals.mbvAmount)
+      return res.status(400).json({ error: `Saldo NTR insuficiente. Necessário ${totals.mbvAmount} NTR, você tem ${u.mbv_balance} NTR.` });
+  }
+
+  const paymentStatus = method === 'pix' ? 'pending' : 'paid';
+
+  const run = db.transaction(() => {
+    const info = db.prepare(`
+      INSERT INTO orders (user_id, code, subtotal, discount, shipping, total, coupon_code, payment_method,
+        payment_status, status, mbv_amount, cashback_mbv, ship_name, ship_cep, ship_address, ship_city, ship_state, ship_phone)
+      VALUES (@user_id,@code,@subtotal,@discount,@shipping,@total,@coupon_code,@payment_method,
+        @payment_status,'processing',@mbv_amount,@cashback_mbv,@n,@cep,@addr,@city,@state,@phone)
+    `).run({
+      user_id: req.user.id, code: 'TMP', subtotal: totals.subtotal, discount: totals.discount,
+      shipping: totals.shipping, total: totals.total, coupon_code: totals.coupon ? totals.coupon.code : null,
+      payment_method: method, payment_status: paymentStatus,
+      mbv_amount: method === 'mbv' ? totals.mbvAmount : 0, cashback_mbv: totals.cashbackMbv,
+      n: ship.name, cep: ship.cep, addr: ship.address, city: ship.city, state: ship.state, phone: ship.phone || ''
+    });
+    const orderId = info.lastInsertRowid;
+    const code = 'MBV-' + String(100000 + orderId);
+    let pixCode = null;
+    if (method === 'pix') pixCode = fakePixCode(code, totals.total);
+    db.prepare('UPDATE orders SET code = ?, pix_code = ? WHERE id = ?').run(code, pixCode, orderId);
+
+    // Itens + baixa de estoque
+    const insItem = db.prepare('INSERT INTO order_items (order_id, product_id, name, price, quantity, unit, image) VALUES (?,?,?,?,?,?,?)');
+    const decStock = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?');
+    for (const it of items) {
+      insItem.run(orderId, it.product_id, it.name, it.price, it.quantity, it.unit, it.image);
+      decStock.run(it.quantity, it.product_id);
+    }
+
+    // Pagamento em MBV Coin (debita saldo)
+    if (method === 'mbv') {
+      wallet.move(req.user.id, -totals.mbvAmount, 'purchase', `Pagamento do pedido ${code}`, code);
+    }
+    // Cashback é creditado quando o pagamento está confirmado (card/mbv agora; pix na confirmação)
+    const orderRow = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    if (paymentStatus === 'paid') payCashback(orderRow);
+
+    // Esvazia carrinho
+    db.prepare('DELETE FROM cart_items WHERE user_id = ?').run(req.user.id);
+    return orderId;
+  });
+
+  try {
+    const orderId = run();
+    res.status(201).json({ order: orderWithItems(orderId), token: TOKEN });
+  } catch (e) {
+    if (e.code === 'INSUFFICIENT_FUNDS') return res.status(400).json({ error: 'Saldo de NTR insuficiente.' });
+    console.error(e);
+    res.status(500).json({ error: 'Não foi possível concluir o pedido.' });
+  }
+});
+
+// POST /api/orders/:id/confirm-pix  -> simula confirmação do Pix
+router.post('/:id/confirm-pix', requireAuth, (req, res) => {
+  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  if (!order) return res.status(404).json({ error: 'Pedido não encontrado.' });
+  if (order.payment_status === 'paid') return res.json({ order: orderWithItems(order.id) });
+  db.prepare("UPDATE orders SET payment_status = 'paid' WHERE id = ?").run(order.id);
+  payCashback(order);
+  res.json({ order: orderWithItems(order.id) });
+});
+
+// GET /api/orders  -> meus pedidos (admin com ?all=1 vê todos)
+router.get('/', requireAuth, (req, res) => {
+  let rows;
+  if (req.query.all === '1' && req.user.role === 'admin') {
+    rows = db.prepare(`SELECT o.*, u.name AS customer_name, u.email AS customer_email FROM orders o JOIN users u ON u.id=o.user_id ORDER BY o.id DESC`).all();
+  } else {
+    rows = db.prepare('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC').all(req.user.id);
+  }
+  for (const o of rows) o.items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(o.id);
+  res.json({ orders: rows });
+});
+
+// GET /api/orders/:id
+router.get('/:id', requireAuth, (req, res) => {
+  const order = orderWithItems(req.params.id);
+  if (!order) return res.status(404).json({ error: 'Pedido não encontrado.' });
+  if (order.user_id !== req.user.id && req.user.role !== 'admin')
+    return res.status(403).json({ error: 'Acesso negado.' });
+  res.json({ order });
+});
+
+// PATCH /api/orders/:id/status  (admin) -> atualiza status logístico
+router.patch('/:id/status', requireAdmin, (req, res) => {
+  const allowed = ['processing', 'shipped', 'delivered', 'cancelled'];
+  if (!allowed.includes(req.body.status)) return res.status(400).json({ error: 'Status inválido.' });
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
+  if (!order) return res.status(404).json({ error: 'Pedido não encontrado.' });
+
+  // Cancelamento: estorna estoque e devolve MBV (se pago em MBV)
+  if (req.body.status === 'cancelled' && order.status !== 'cancelled') {
+    const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(order.id);
+    const tx = db.transaction(() => {
+      for (const it of items) if (it.product_id) db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(it.quantity, it.product_id);
+      if (order.payment_method === 'mbv' && order.payment_status === 'paid' && order.mbv_amount > 0) {
+        wallet.move(order.user_id, order.mbv_amount, 'refund', `Estorno do pedido ${order.code}`, order.code);
+      }
+      db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").run(order.id);
+    });
+    tx();
+  } else {
+    db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(req.body.status, order.id);
+  }
+  res.json({ order: orderWithItems(order.id) });
+});
+
+module.exports = router;

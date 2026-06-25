@@ -1,0 +1,29 @@
+# Render Blueprint — coloque este arquivo na RAIZ do repositório.
+# (Se o repositório for a própria pasta "marketplace", já está no lugar certo.)
+# No Render: New → Blueprint → conecte o repositório.
+services:
+  - type: web
+    name: mbv-marketplace
+    runtime: node
+    plan: free                 # troque para "starter" se for usar disco persistente
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: JWT_SECRET
+        generateValue: true    # o Render gera um segredo seguro automaticamente
+
+    # ---------------------------------------------------------------
+    # DADOS PERSISTENTES (opcional, requer plano pago)
+    # Sem isto, o banco SQLite e as imagens enviadas zeram a cada deploy.
+    # Para manter os dados: troque "plan: free" por "plan: starter",
+    # descomente o bloco "disk" abaixo e as duas envVars a seguir.
+    #   - key: MBV_DATA_DIR
+    #     value: /var/data
+    #   - key: MBV_UPLOAD_DIR
+    #     value: /var/data/uploads
+    # disk:
+    #   name: mbv-data
+    #   mountPath: /var/data
+    #   sizeGB: 1
