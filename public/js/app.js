@@ -1,7 +1,7 @@
 /* ===========================================================
    MBV Marketplace — App (router + páginas)
    =========================================================== */
-const { icon, iconFill, money, mbv, escapeHtml, stars, productImage, productCard, toast, openModal, closeModal, statusPill } = UI;
+const { icon, iconFill, money, mbv, ntr, escapeHtml, stars, productImage, productCard, toast, openModal, closeModal, statusPill } = UI;
 const app = document.getElementById('app');
 
 /* ---------------- Router ---------------- */
@@ -104,7 +104,7 @@ function renderFooter() {
       </div>
       <div><h5>Categorias</h5>${Store.categories.map(c => `<a href="#/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('')}</div>
       <div><h5>Conta</h5><a href="#/conta">Minha conta</a><a href="#/pedidos">Meus pedidos</a><a href="#/carteira">Carteira Neutrotan (NTR)</a><a href="#/favoritos">Favoritos</a></div>
-      <div><h5>Neutrotan (NTR)</h5><a href="#/carteira">Saldo & extrato</a><a href="#/checkout">Pagar com cripto</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">Utility token ERC-20 na rede Polygon.<br>Lastro real em cote · 1 NTR ≈ R$ 1,00 (simulado).</span></div>
+      <div><h5>Neutrotan (NTR)</h5><a href="#/carteira">Saldo & extrato</a><a href="#/checkout">Pagar com cripto</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">Utility token ERC-20 na rede Polygon.<br>Lastro real em cote · 1 NTR = R$ 9,36.</span></div>
     </div>
     <div class="footer-bottom"><span>© 2026 MBV — Projeto Petrus. Todos os direitos reservados.</span><span>Cartão · Pix · Neutrotan (NTR) 🌱</span></div>
   </div></div>`;
@@ -267,7 +267,7 @@ Pages.product = async function (id) {
           <span class="price">${money(p.price)}</span>${p.unit !== 'un' ? `<span class="muted">/ ${escapeHtml(p.pack_size || p.unit)}</span>` : ''}
           ${off ? `<span class="chip" style="background:var(--gold);color:#3a2a00">-${off}%</span>` : ''}
         </div>
-        <div class="price-mbv" style="font-size:14px">${iconFill('coin', 14)} ou <b>${mbv(p.price)}</b> pagando com Neutrotan (NTR) <span style="color:var(--green-700)">(5% OFF)</span></div>
+        <div class="price-mbv" style="font-size:14px">${iconFill('coin', 14)} ou <b>${ntr(p.price)}</b> pagando com Neutrotan (NTR) <span style="color:var(--green-700)">(5% OFF)</span></div>
 
         <div class="spec">
           <div class="item"><span>Embalagem</span><b>${escapeHtml(p.pack_size || '—')}</b></div>
@@ -467,6 +467,13 @@ function setPayment(method) {
       <p class="muted" style="font-size:12px">${icon('shield', 12)} Ambiente de demonstração — não insira dados reais. Estrutura pronta para integração com Stripe/Mercado Pago.</p>`;
   } else if (method === 'pix') {
     panel.innerHTML = `<div class="eco-note"><div class="ic">${icon('pix', 20)}</div><div><b>Pix</b><br><span class="muted" style="font-size:13.5px">O código copia-e-cola será gerado ao confirmar o pedido. Pagamento com aprovação imediata.</span></div></div>`;
+  } else if (Store.chain && Store.chain.enabled) {
+    // Pagamento on-chain real (carteira do cliente / MetaMask)
+    panel.innerHTML = `<div class="mbv-pay">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span>Pagar com</span><b>NTR · ${escapeHtml(Store.chain.name)}</b></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:14px;color:#cfe9d6"><span>Total em NTR</span><b id="mbvTotal">${lastTotals ? mbv(lastTotals.mbvAmount) : '—'}</b></div>
+      <div style="margin-top:10px;font-size:13px;color:#cfe9d6">${icon('check', 13)} Conecte a MetaMask e confirme o pagamento na próxima etapa. Tenha NTR + um pouco de ${escapeHtml(Store.chain.nativeSymbol)} (taxa de rede) na carteira.</div>
+    </div>`;
   } else {
     const enough = Store.balance >= (lastTotals ? lastTotals.mbvAmount : 0);
     panel.innerHTML = `<div class="mbv-pay">
@@ -506,7 +513,8 @@ async function placeOrder() {
   try {
     const { order } = await API.post('/orders', body);
     Flow.coupon = ''; await Store.refreshCart(); await Store.refreshUser(); renderHeader();
-    toast('Pedido confirmado!', 'Pedido ' + order.code, 'ok');
+    if (order.payment_status === 'paid') toast('Pedido confirmado!', 'Pedido ' + order.code, 'ok');
+    else toast('Pedido criado', 'Finalize o pagamento na próxima tela.', 'info');
     go('/pedido/' + order.id);
   } catch (e) { toast('Não foi possível finalizar', e.message, 'err'); btn.disabled = false; btn.innerHTML = 'Confirmar pedido'; }
 }
@@ -519,12 +527,12 @@ Pages.orderDetail = async function (id) {
   const paid = o.payment_status === 'paid';
   mount(`<div class="container" style="max-width:860px">
     <div style="text-align:center;margin:30px 0 24px">
-      <div style="width:70px;height:70px;border-radius:50%;background:${paid ? 'var(--green-100)' : '#fdf1dc'};color:${paid ? 'var(--green-700)' : 'var(--warn)'};display:grid;place-items:center;margin:0 auto 14px">${icon(paid ? 'check' : 'pix', 32)}</div>
-      <h1>${paid ? 'Pedido confirmado!' : 'Pedido criado — pague com Pix'}</h1>
+      <div style="width:70px;height:70px;border-radius:50%;background:${paid ? 'var(--green-100)' : '#fdf1dc'};color:${paid ? 'var(--green-700)' : 'var(--warn)'};display:grid;place-items:center;margin:0 auto 14px">${icon(paid ? 'check' : (o.payment_method === 'pix' ? 'pix' : 'coin'), 32)}</div>
+      <h1>${paid ? 'Pedido confirmado!' : (o.payment_method === 'pix' ? 'Pedido criado — pague com Pix' : 'Pedido criado — pague com NTR')}</h1>
       <p class="muted">Pedido <b>${escapeHtml(o.code)}</b> · ${new Date(o.created_at + 'Z').toLocaleString('pt-BR')}</p>
     </div>
 
-    ${o.payment_method === 'pix' && !paid ? pixPanel(o) : ''}
+    ${o.payment_method === 'pix' && !paid ? pixPanel(o) : (o.payment_method === 'mbv' && !paid && Store.chain && Store.chain.enabled ? onchainPanel(o) : '')}
 
     <div class="panel">
       <div class="panel-head"><h3 style="margin:0">Itens</h3>${statusPill(o.status)} ${statusPill(o.payment_status)}</div>
@@ -561,6 +569,10 @@ Pages.orderDetail = async function (id) {
   });
   const cp = app.querySelector('#copyPix');
   if (cp) cp.addEventListener('click', () => { navigator.clipboard.writeText(o.pix_code); toast('Código copiado!', '', 'ok'); });
+  const po = app.querySelector('#payOnchain');
+  if (po) po.addEventListener('click', () => payOrderOnchain(o));
+  const vm = app.querySelector('#verifyManual');
+  if (vm) vm.addEventListener('click', () => verifyOnchainManual(o));
 };
 function pixPanel(o) {
   return `<div class="panel"><div class="pix-box">
@@ -571,6 +583,48 @@ function pixPanel(o) {
     <button class="btn btn-primary btn-lg" id="confirmPix" style="margin-top:16px">${icon('check', 17)} Já paguei (simular confirmação)</button>
     <p class="muted" style="font-size:11.5px;margin-top:8px">Estrutura pronta para integração real (Pix via PSP/banco).</p>
   </div></div>`;
+}
+function shortAddr(a) { return a ? a.slice(0, 6) + '…' + a.slice(-4) : '—'; }
+function onchainPanel(o) {
+  const c = Store.chain;
+  return `<div class="panel"><div class="pix-box">
+    <h3 style="justify-content:center;display:flex;align-items:center;gap:8px">${iconFill('coin', 18)} Pague com NTR · ${escapeHtml(c.name)}</h3>
+    <p class="muted" style="font-size:13.5px;margin:4px auto 14px;max-width:430px">Conecte sua carteira (MetaMask) e envie <b>${mbv(o.mbv_amount)}</b> para a carteira da loja. Tenha NTR e um pouco de ${escapeHtml(c.nativeSymbol)} (taxa de rede) na carteira.</p>
+    <div class="mbv-pay" style="text-align:left;max-width:440px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between"><span>Valor</span><b>${mbv(o.mbv_amount)}</b></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12.5px;color:#cfe9d6"><span>Carteira da loja</span><a href="${c.explorer}/address/${c.store}" target="_blank" rel="noopener" style="font-family:monospace;color:var(--lime)">${shortAddr(c.store)}</a></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12.5px;color:#cfe9d6"><span>Token NTR</span><a href="${c.explorer}/token/${c.token.address}" target="_blank" rel="noopener" style="font-family:monospace;color:var(--lime)">${shortAddr(c.token.address)}</a></div>
+    </div>
+    <button class="btn btn-primary btn-lg" id="payOnchain" style="margin-top:16px">${iconFill('coin', 17)} Conectar carteira e pagar</button>
+    <div style="margin-top:14px;font-size:12.5px;color:var(--muted)">Já pagou por fora? Cole o hash da transação:
+      <div class="pix-code" style="max-width:440px;margin:8px auto 0"><input id="manualTx" placeholder="0x..." style="font-family:monospace"><button class="btn btn-ghost" id="verifyManual">Verificar</button></div>
+    </div>
+  </div></div>`;
+}
+async function payOrderOnchain(o) {
+  const btn = app.querySelector('#payOnchain');
+  const original = btn ? btn.innerHTML : '';
+  try {
+    if (btn) { btn.disabled = true; btn.textContent = 'Abrindo a carteira…'; }
+    const tx = await Web3Pay.payNtr(Store.chain, String(o.mbv_amount));
+    toast('Transação enviada', 'Aguardando confirmação na rede…', 'info');
+    if (btn) btn.textContent = 'Confirmando na blockchain…';
+    await tx.wait(Store.chain.minConfirmations || 1);
+    await API.post('/orders/' + o.id + '/verify-onchain', { txHash: tx.hash });
+    await Store.refreshUser(); renderHeader();
+    toast('Pagamento confirmado!', 'NTR recebido on-chain ✓', 'ok');
+    Pages.orderDetail(o.id);
+  } catch (e) {
+    toast('Pagamento', e.shortMessage || e.message || 'Não foi possível concluir o pagamento.', 'err');
+    if (btn) { btn.disabled = false; btn.innerHTML = original; }
+  }
+}
+async function verifyOnchainManual(o) {
+  const el = app.querySelector('#manualTx');
+  const hash = el ? el.value.trim() : '';
+  if (!hash) return toast('Verificação', 'Cole o hash da transação (0x...).', 'err');
+  try { await API.post('/orders/' + o.id + '/verify-onchain', { txHash: hash }); toast('Pagamento confirmado!', '', 'ok'); Pages.orderDetail(o.id); }
+  catch (e) { toast('Verificação', e.message, 'err'); }
 }
 function qrArt(seed) {
   // Padrão decorativo determinístico (não escaneável) — placeholder visual do QR.

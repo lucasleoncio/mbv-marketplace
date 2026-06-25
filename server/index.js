@@ -23,6 +23,7 @@ app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/admin', require('./routes/admin'));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'MBV Marketplace' }));
+app.get('/api/chain', (_req, res) => res.json(require('./lib/chain').publicConfig()));
 
 // Frontend (SPA)
 app.use(express.static(path.join(__dirname, '..', 'public')));

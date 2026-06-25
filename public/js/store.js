@@ -5,6 +5,8 @@ const Store = {
   balance: 0,
   categories: [],
   favorites: new Set(),
+  chain: null,        // config de rede on-chain (de /api/chain)
+  rate: 9.36,         // cotação: R$ por NTR
 
   isAuthed() { return !!this.user; },
   isAdmin() { return this.user && this.user.role === 'admin'; },
@@ -12,6 +14,7 @@ const Store = {
   // Carrega usuário atual (se houver token), categorias e contagem do carrinho.
   async init() {
     try { this.categories = (await API.get('/products/meta/categories')).categories; } catch (_) {}
+    try { this.chain = await API.get('/chain'); if (this.chain && this.chain.brlPerToken) this.rate = this.chain.brlPerToken; } catch (_) {}
     if (API.getToken()) {
       try {
         const { user } = await API.get('/auth/me');

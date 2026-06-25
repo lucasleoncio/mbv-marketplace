@@ -16,7 +16,7 @@ const PRODUCTS = [
   { name: 'Eutroterra — Condicionador de Solo Orgânico', cat: 'fertilizantes', price: 1290, compare: 1490, stock: 120, unit: 'L', pack: 'Bombona 16 litros', co2: 12, featured: 1,
     badges: ['Orgânico', 'Carbono Neutro', 'Biodegradável'],
     desc: 'Condicionador líquido que recupera a estrutura e a vida microbiológica do solo. Produto-núcleo da linha MBV, indicado para grandes culturas e recuperação de áreas degradadas.' },
-  { name: 'Neutrothan — Neutralizador de Acidez Biológico', cat: 'defensivos', price: 740, compare: 0, stock: 90, unit: 'L', pack: 'Bombona 20 litros', co2: 8, featured: 1,
+  { name: 'Neutrotan — Neutralizador de Acidez Biológico', cat: 'defensivos', price: 740, compare: 0, stock: 90, unit: 'L', pack: 'Bombona 20 litros', co2: 8, featured: 1,
     badges: ['Biológico', 'Sem Resíduos'],
     desc: 'Solução biológica para neutralização de acidez e equilíbrio do solo, sem deixar resíduos químicos. Compatível com manejo orgânico e regenerativo.' },
   { name: 'Biofertilizante Líquido Premium', cat: 'fertilizantes', price: 320, compare: 380, stock: 200, unit: 'L', pack: 'Galão 5 litros', co2: 4, featured: 0,

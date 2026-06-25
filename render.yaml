@@ -14,6 +14,26 @@ services:
       - key: JWT_SECRET
         generateValue: true    # o Render gera um segredo seguro automaticamente
 
+      # --- Pagamento on-chain do NTR (ver BLOCKCHAIN.md) ---
+      # Sem NTR_CONTRACT + STORE_WALLET o checkout em NTR fica simulado.
+      # Testnet (Polygon Amoy):
+      # - key: CHAIN_ID
+      #   value: "80002"
+      # - key: RPC_URL
+      #   value: https://rpc-amoy.polygon.technology
+      # - key: EXPLORER_URL
+      #   value: https://amoy.polygonscan.com
+      # - key: NTR_CONTRACT
+      #   value: "0x..."          # endereço do token (TestNTR na testnet / NTR real na mainnet)
+      # - key: STORE_WALLET
+      #   value: "0x..."          # carteira da loja que recebe o NTR
+      # - key: NTR_DECIMALS
+      #   value: "18"
+      # - key: MIN_CONFIRMATIONS
+      #   value: "1"
+      # - key: RATE_BRL_PER_NTR
+      #   value: "9.36"
+
     # ---------------------------------------------------------------
     # DADOS PERSISTENTES (opcional, requer plano pago)
     # Sem isto, o banco SQLite e as imagens enviadas zeram a cada deploy.

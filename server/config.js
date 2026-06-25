@@ -15,8 +15,8 @@ module.exports = {
     network: 'Polygon (ERC-20)',
     backing: 'Lastro real em cote (composto orgânico)',
     platform: 'neutrotan.com',
-    // Cotação SIMULADA usada no app. Em produção, busque a cotação on-chain / DEX.
-    brlPerToken: 1.0, // 1 NTR = R$ 1,00 (cotação simulada)
+    // Cotação FIXA do NTR (valor de referência do whitepaper). Ajustável por env.
+    brlPerToken: Number(process.env.RATE_BRL_PER_NTR || 9.36), // 1 NTR = R$ 9,36
     // Desconto de incentivo ao pagar com NTR
     cryptoDiscountPct: 0.05, // 5%
     // Bônus de boas-vindas creditado a novos clientes
@@ -29,5 +29,23 @@ module.exports = {
   SHIPPING: {
     flat: 29.9, // frete padrão
     freeAbove: 500 // frete grátis acima de R$ 500
+  },
+
+  // --- Pagamento on-chain do NTR (rede Polygon) ---
+  // Sem NTR_CONTRACT + STORE_WALLET o app fica em modo SIMULADO (saldo interno).
+  // Preenchendo essas variáveis, o checkout em NTR vira pagamento real on-chain.
+  // Padrão = testnet Polygon Amoy (sem dinheiro real). Mainnet: CHAIN_ID=137 etc.
+  CHAIN: {
+    chainId: Number(process.env.CHAIN_ID || 80002),                 // 80002 = Amoy (testnet) · 137 = Polygon mainnet
+    name: process.env.CHAIN_NAME || 'Polygon Amoy (testnet)',
+    rpcUrl: process.env.RPC_URL || 'https://rpc-amoy.polygon.technology',
+    explorer: process.env.EXPLORER_URL || 'https://amoy.polygonscan.com',
+    nativeSymbol: process.env.NATIVE_SYMBOL || 'POL',
+    ntrContract: (process.env.NTR_CONTRACT || '').trim(),            // endereço 0x... do token NTR
+    ntrDecimals: Number(process.env.NTR_DECIMALS || 18),
+    storeWallet: (process.env.STORE_WALLET || '').trim(),            // carteira da loja que recebe o NTR
+    minConfirmations: Number(process.env.MIN_CONFIRMATIONS || 2),
+    feeToleranceNtr: Number(process.env.FEE_TOLERANCE_NTR || 0.02),  // tolera tarifa de 0,01 NTR/transação
+    get onchainEnabled() { return !!(this.ntrContract && this.storeWallet); }
   }
 };

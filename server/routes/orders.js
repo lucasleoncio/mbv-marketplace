@@ -3,7 +3,8 @@ const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { getCartItems, computeTotals, round2 } = require('../lib/pricing');
 const wallet = require('../lib/wallet');
-const { TOKEN } = require('../config');
+const chain = require('../lib/chain');
+const { TOKEN, CHAIN } = require('../config');
 
 const router = express.Router();
 
@@ -60,13 +61,17 @@ router.post('/', requireAuth, (req, res) => {
     if (!String(c.name || '').trim()) return res.status(400).json({ error: 'Informe o nome impresso no cartão.' });
     // NÃO armazenamos dados do cartão. Aqui entraria a chamada ao gateway (Stripe/Mercado Pago).
   }
-  if (method === 'mbv') {
+  // Modo on-chain: o pagamento em NTR é feito pela carteira do cliente e confirmado depois.
+  const onchain = method === 'mbv' && CHAIN.onchainEnabled;
+
+  // Modo simulado (sem on-chain configurado): debita o saldo interno de demonstração.
+  if (method === 'mbv' && !onchain) {
     const u = db.prepare('SELECT mbv_balance FROM users WHERE id = ?').get(req.user.id);
     if (u.mbv_balance < totals.mbvAmount)
       return res.status(400).json({ error: `Saldo NTR insuficiente. Necessário ${totals.mbvAmount} NTR, você tem ${u.mbv_balance} NTR.` });
   }
 
-  const paymentStatus = method === 'pix' ? 'pending' : 'paid';
+  const paymentStatus = (method === 'pix' || onchain) ? 'pending' : 'paid';
 
   const run = db.transaction(() => {
     const info = db.prepare(`
@@ -78,14 +83,15 @@ router.post('/', requireAuth, (req, res) => {
       user_id: req.user.id, code: 'TMP', subtotal: totals.subtotal, discount: totals.discount,
       shipping: totals.shipping, total: totals.total, coupon_code: totals.coupon ? totals.coupon.code : null,
       payment_method: method, payment_status: paymentStatus,
-      mbv_amount: method === 'mbv' ? totals.mbvAmount : 0, cashback_mbv: totals.cashbackMbv,
+      mbv_amount: method === 'mbv' ? totals.mbvAmount : 0, cashback_mbv: onchain ? 0 : totals.cashbackMbv,
       n: ship.name, cep: ship.cep, addr: ship.address, city: ship.city, state: ship.state, phone: ship.phone || ''
     });
     const orderId = info.lastInsertRowid;
     const code = 'MBV-' + String(100000 + orderId);
     let pixCode = null;
     if (method === 'pix') pixCode = fakePixCode(code, totals.total);
-    db.prepare('UPDATE orders SET code = ?, pix_code = ? WHERE id = ?').run(code, pixCode, orderId);
+    db.prepare('UPDATE orders SET code = ?, pix_code = ?, chain_id = ? WHERE id = ?')
+      .run(code, pixCode, onchain ? CHAIN.chainId : null, orderId);
 
     // Itens + baixa de estoque
     const insItem = db.prepare('INSERT INTO order_items (order_id, product_id, name, price, quantity, unit, image) VALUES (?,?,?,?,?,?,?)');
@@ -95,8 +101,9 @@ router.post('/', requireAuth, (req, res) => {
       decStock.run(it.quantity, it.product_id);
     }
 
-    // Pagamento em MBV Coin (debita saldo)
-    if (method === 'mbv') {
+    // Pagamento em NTR no modo simulado debita o saldo interno.
+    // No modo on-chain, o pagamento real é confirmado depois (verify-onchain).
+    if (method === 'mbv' && !onchain) {
       wallet.move(req.user.id, -totals.mbvAmount, 'purchase', `Pagamento do pedido ${code}`, code);
     }
     // Cashback é creditado quando o pagamento está confirmado (card/mbv agora; pix na confirmação)
@@ -110,7 +117,7 @@ router.post('/', requireAuth, (req, res) => {
 
   try {
     const orderId = run();
-    res.status(201).json({ order: orderWithItems(orderId), token: TOKEN });
+    res.status(201).json({ order: orderWithItems(orderId), token: TOKEN, onchain });
   } catch (e) {
     if (e.code === 'INSUFFICIENT_FUNDS') return res.status(400).json({ error: 'Saldo de NTR insuficiente.' });
     console.error(e);
@@ -126,6 +133,33 @@ router.post('/:id/confirm-pix', requireAuth, (req, res) => {
   db.prepare("UPDATE orders SET payment_status = 'paid' WHERE id = ?").run(order.id);
   payCashback(order);
   res.json({ order: orderWithItems(order.id) });
+});
+
+// POST /api/orders/:id/verify-onchain  -> confirma na blockchain o pagamento em NTR
+router.post('/:id/verify-onchain', requireAuth, async (req, res) => {
+  if (!CHAIN.onchainEnabled) return res.status(400).json({ error: 'Pagamento on-chain não está configurado.' });
+  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  if (!order) return res.status(404).json({ error: 'Pedido não encontrado.' });
+  if (order.payment_method !== 'mbv') return res.status(400).json({ error: 'Este pedido não é pago em NTR.' });
+  if (order.payment_status === 'paid') return res.json({ order: orderWithItems(order.id) });
+
+  const txHash = String(req.body.txHash || '').trim();
+  if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) return res.status(400).json({ error: 'Hash de transação inválido.' });
+
+  const reused = db.prepare('SELECT id FROM orders WHERE tx_hash = ? AND id != ?').get(txHash, order.id);
+  if (reused) return res.status(400).json({ error: 'Esta transação já foi usada em outro pedido.' });
+
+  try {
+    const expected = chain.toBaseUnits(order.mbv_amount);
+    const result = await chain.verifyPayment(txHash, expected);
+    if (!result.ok) return res.status(400).json({ error: result.reason });
+    db.prepare("UPDATE orders SET payment_status = 'paid', tx_hash = ?, chain_id = ? WHERE id = ?")
+      .run(txHash, CHAIN.chainId, order.id);
+    res.json({ order: orderWithItems(order.id), verified: { amount: result.amount, from: result.from } });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Falha ao verificar o pagamento on-chain.' });
+  }
 });
 
 // GET /api/orders  -> meus pedidos (admin com ?all=1 vê todos)

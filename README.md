@@ -60,7 +60,9 @@ O banco de dados é criado e populado automaticamente na primeira execução.
 |--------|--------------------|---------------|
 | **Cartão** | Valida os dados e aprova (ambiente de demonstração; nenhum dado é salvo) | Plugar gateway em `server/routes/orders.js` (ex.: Stripe / Mercado Pago) |
 | **Pix** | Gera código copia-e-cola e confirma o pagamento manualmente | Integrar PSP/banco para gerar o QR e receber o webhook de confirmação |
-| **Neutrotan (NTR)** | Debita o saldo do cliente, dá **5% de desconto** e **2% de cashback** | Conectar à carteira on-chain (rede Polygon) e à cotação real ligada ao lastro (cote) |
+| **Neutrotan (NTR)** | Simulado (saldo interno) **ou real on-chain**, se configurado | **Já incluído:** MetaMask + Polygon — ative em `BLOCKCHAIN.md` |
+
+> **🔗 Pagamento real com o token:** o checkout em NTR já integra com a carteira do cliente (**MetaMask**) na rede **Polygon**, com verificação on-chain no servidor (não-custodial). Comece pela **testnet (Amoy)** — passo a passo em **`BLOCKCHAIN.md`**.
 
 Cupons de exemplo já cadastrados: **`COINMAX`** (10% + 20 MBV de cashback), **`SAFRA15`** (15% acima de R$ 500), **`PLANTAR50`** (R$ 50 acima de R$ 300).
 
@@ -70,7 +72,7 @@ Cupons de exemplo já cadastrados: **`COINMAX`** (10% + 20 MBV de cashback), **`
 
 O app implementa a economia do utility token *Neutrotan (NTR)*, conforme o site oficial (neutrotan.com):
 - Carteira por usuário com saldo, endereço e extrato de transações.
-- Cotação simulada **1 NTR = R$ 1,00** (ajustável em `server/config.js`).
+- Cotação fixa **1 NTR = R$ 9,36** (valor de referência do whitepaper; ajustável via `RATE_BRL_PER_NTR`).
 - **Lastro real em cote** (composto orgânico vendável) — base de valor do token.
 - Recarga (on-ramp) simulada — em produção o crédito ocorre após pagamento real.
 - Desconto e cashback ao pagar com NTR, incentivando o uso do token.
