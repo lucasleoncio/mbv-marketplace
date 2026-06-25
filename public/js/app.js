@@ -52,7 +52,7 @@ function renderHeader() {
   </div></div>
   <div class="header"><div class="container">
     <div class="header-main">
-      <a href="#/" class="logo"><span class="mark">${iconFill('leafFill', 22)}</span><span>MBV<small>MOVIMENTO BRASIL VERDE</small></span></a>
+      <a href="#/" class="logo"><img class="mark" src="/img/logo.svg" alt="MBV — Movimento Brasil Verde" width="40" height="40"><span>MBV<small>MOVIMENTO BRASIL VERDE</small></span></a>
       <form class="search" id="searchForm">
         <input id="searchInput" placeholder="Buscar fertilizantes, sementes, energia solar…" />
         <button type="submit">${icon('search', 18)}</button>
@@ -95,18 +95,33 @@ function renderHeader() {
   if (lo) lo.addEventListener('click', () => { Store.logout(); renderHeader(); go('/'); toast('Até logo!', 'Você saiu da sua conta.'); });
 }
 
+function socialIcon(n) {
+  const p = {
+    instagram: '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/>',
+    facebook: '<path d="M14.2 8.9h2V6.2h-2c-1.9 0-3.2 1.3-3.2 3.1V11H9v2.7h2V21h2.8v-7.3h2.1l.3-2.7h-2.4V9.3c0-.3.3-.4.6-.4Z" fill="currentColor" stroke="none"/>',
+    linkedin: '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 10.5V17M7 7.3v.01M11 17v-3.6a2 2 0 0 1 4 0V17M11 17v-6.5"/>',
+    youtube: '<rect x="2.5" y="6" width="19" height="12" rx="3.5"/><path d="M10.5 9.4l4.4 2.6-4.4 2.6Z" fill="currentColor" stroke="none"/>'
+  };
+  return `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p[n] || ''}</svg>`;
+}
 function renderFooter() {
   document.getElementById('site-footer').innerHTML = `<div class="footer"><div class="container">
     <div class="footer-grid">
       <div>
-        <a href="#/" class="logo" style="color:#fff"><span class="mark">${iconFill('leafFill', 22)}</span><span>MBV<small style="color:#8fbf9e">MOVIMENTO BRASIL VERDE</small></span></a>
+        <a href="#/" class="logo" style="color:#fff"><img class="mark" src="/img/logo.svg" alt="MBV — Movimento Brasil Verde" width="40" height="40"><span>MBV<small style="color:#8fbf9e">MOVIMENTO BRASIL VERDE</small></span></a>
         <p style="margin-top:14px;max-width:300px;font-size:13.5px;line-height:1.6">Marketplace de insumos que regeneram o solo e protegem o meio ambiente. Pague com Cartão, Pix ou o token <b style="color:var(--lime)">Neutrotan (NTR)</b>.</p>
+        <div class="social">
+          <a href="https://www.instagram.com/mbv.oficial/" target="_blank" rel="noopener" aria-label="Instagram">${socialIcon('instagram')}</a>
+          <a href="https://www.facebook.com/movimentobrasilverde/" target="_blank" rel="noopener" aria-label="Facebook">${socialIcon('facebook')}</a>
+          <a href="https://www.linkedin.com/company/mbvoficial/" target="_blank" rel="noopener" aria-label="LinkedIn">${socialIcon('linkedin')}</a>
+          <a href="https://www.youtube.com/@MovimentoBrasilVerde" target="_blank" rel="noopener" aria-label="YouTube">${socialIcon('youtube')}</a>
+        </div>
       </div>
       <div><h5>Categorias</h5>${Store.categories.map(c => `<a href="#/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('')}</div>
       <div><h5>Conta</h5><a href="#/conta">Minha conta</a><a href="#/pedidos">Meus pedidos</a><a href="#/carteira">Carteira Neutrotan (NTR)</a><a href="#/favoritos">Favoritos</a></div>
       <div><h5>Neutrotan (NTR)</h5><a href="#/carteira">Saldo & extrato</a><a href="#/checkout">Pagar com cripto</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">Utility token ERC-20 na rede Polygon.<br>Lastro real em cote · 1 NTR = R$ 9,36.</span></div>
     </div>
-    <div class="footer-bottom"><span>© 2026 MBV — Projeto Petrus. Todos os direitos reservados.</span><span>Cartão · Pix · Neutrotan (NTR) 🌱</span></div>
+    <div class="footer-bottom"><span>© 2026 Grupo Movimento Brasil Verde · CNPJ 54.224.102/0001-10</span><span>Cartão · Pix · Neutrotan (NTR) 🌱</span></div>
   </div></div>`;
 }
 
@@ -179,7 +194,7 @@ Pages.home = async function () {
       <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center">
         ${['IBAMA', 'Pacto Global ONU', 'Future Roots', 'ICP', 'KMA Law', 'Agroeda'].map(n => `<span style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 20px;font-family:var(--display);font-weight:700;color:var(--green-800);box-shadow:var(--shadow-sm)">${n}</span>`).join('')}
       </div>
-      <p class="muted center" style="margin-top:14px;font-size:13px">Projetos e doações auditáveis em blockchain · Lastro real · Conformidade jurídica</p>
+      <p class="muted center" style="margin-top:14px;font-size:13px">Signatária do Pacto Global da ONU · Alinhada aos ODS da ONU · Projetos auditáveis em blockchain</p>
     </section>
 
     <section class="section">
@@ -760,7 +775,7 @@ Pages.auth = function (query) {
   const tab = query.tab === 'register' ? 'register' : 'login';
   const next = query.next || '#/';
   mount(`<div class="container"><div class="auth-wrap">
-    <a href="#/" class="logo" style="justify-content:center;margin-bottom:6px"><span class="mark">${iconFill('leafFill', 22)}</span><span>MBV</span></a>
+    <a href="#/" class="logo" style="justify-content:center;margin-bottom:6px"><img class="mark" src="/img/logo.svg" alt="MBV — Movimento Brasil Verde" width="40" height="40"><span>MBV</span></a>
     <div class="auth-tabs"><button data-tab="login" class="${tab === 'login' ? 'active' : ''}">Entrar</button><button data-tab="register" class="${tab === 'register' ? 'active' : ''}">Criar conta</button></div>
     <div id="authForm"></div>
   </div></div>`);

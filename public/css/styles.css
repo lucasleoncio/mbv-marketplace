@@ -2,18 +2,18 @@
    MBV Marketplace — Design System
    =========================================================== */
 :root{
-  --green-900:#0b3d24; --green-800:#0f5a34; --green-700:#127a45; --green-600:#159a54;
-  --green-500:#1eb866; --green-100:#e3f5ea; --green-50:#f1faf4;
-  --lime:#a7e06a; --lime-600:#7cc23e;
-  --earth:#6b4f3a; --gold:#e0a526;
-  --ink:#10231a; --muted:#5e7167; --line:#e4ebe6;
-  --bg:#f6f9f5; --card:#ffffff;
+  --green-900:#0f3d2e; --green-800:#13412f; --green-700:#1f6e47; --green-600:#2f8f5b;
+  --green-500:#3da06a; --green-100:#e5f0e8; --green-50:#f3f7f1;
+  --lime:#9ad36b; --lime-600:#74c24a;
+  --earth:#6b4f3a; --gold:#c9a546;
+  --ink:#152019; --muted:#5d6f64; --line:#e3e1d6;
+  --bg:#fbfbf8; --card:#ffffff;
   --danger:#d64545; --danger-bg:#fdecec; --warn:#d98a17; --info:#2b6cb0;
   --radius:16px; --radius-sm:11px; --radius-lg:24px;
   --shadow-sm:0 1px 2px rgba(16,35,26,.06),0 1px 3px rgba(16,35,26,.05);
   --shadow:0 6px 20px rgba(16,35,26,.08); --shadow-lg:0 18px 50px rgba(16,35,26,.16);
-  --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  --display:'Plus Jakarta Sans',var(--font);
+  --font:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --display:'Fraunces','Plus Jakarta Sans',Georgia,serif;
   --max:1240px;
 }
 *{box-sizing:border-box}
@@ -61,7 +61,7 @@ button{font-family:inherit;cursor:pointer}
 .header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .header-main{display:flex;align-items:center;gap:22px;height:72px}
 .logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:22px;color:var(--green-900)}
-.logo .mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(150deg,var(--green-600),var(--green-800));display:grid;place-items:center;box-shadow:var(--shadow-sm)}
+.logo .mark{width:40px;height:40px;border-radius:11px;display:block;box-shadow:var(--shadow-sm)}
 .logo small{display:block;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.14em;font-family:var(--font)}
 .search{flex:1;max-width:560px;display:flex;align-items:center;gap:8px;background:var(--green-50);border:1.5px solid var(--line);border-radius:999px;padding:0 8px 0 16px;height:46px}
 .search:focus-within{border-color:var(--green-500);background:#fff}
@@ -263,6 +263,9 @@ tr:last-child td{border-bottom:0}
 .footer a:hover{color:var(--lime)}
 .footer .logo{color:#fff} .footer .logo small{color:#8fbf9e}
 .footer-bottom{border-top:1px solid rgba(255,255,255,.12);margin-top:34px;padding-top:20px;display:flex;justify-content:space-between;font-size:12.5px;flex-wrap:wrap;gap:10px}
+.social{display:flex;gap:10px;margin-top:18px}
+.social a{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.1);color:#cfe9d6;transition:.16s}
+.social a:hover{background:var(--lime);color:#13412f;transform:translateY(-2px)}
 
 /* ---------- Toast & Modal ---------- */
 .toast-stack{position:fixed;right:20px;bottom:20px;z-index:200;display:flex;flex-direction:column;gap:10px}
