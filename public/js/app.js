@@ -419,7 +419,7 @@ function reviewRow(r) {
 }
 
 /* Estado que persiste entre carrinho e checkout */
-const Flow = { coupon: '', payment: 'card', cep: '' };
+const Flow = { coupon: '', payment: 'card', cep: '', cpf: '' };
 
 /* ---------- CART ---------- */
 Pages.cart = async function () {
@@ -509,7 +509,7 @@ function wireSummary(mode) {
 Pages.checkout = async function () {
   if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('#/checkout'));
   loading();
-  const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon, payment: Flow.payment, cep: Flow.cep }));
+  const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon, payment: Flow.payment, cep: Flow.cep, cpf: Flow.cpf }));
   if (!data.items.length) return go('/carrinho');
   await Store.refreshUser();
 
@@ -520,6 +520,7 @@ Pages.checkout = async function () {
         <div class="panel">
           <h3>${icon('truck', 18)} Endereço de entrega</h3>
           <div class="field"><label>Nome completo</label><input id="s_name" value="${escapeHtml(Store.user.name)}"></div>
+          <div class="field"><label>CPF/CNPJ <span class="muted" style="font-weight:400">(para nota fiscal e cupons exclusivos)</span></label><input id="s_cpf" placeholder="000.000.000-00" value="${escapeHtml(Flow.cpf || '')}"></div>
           <div class="grid-2">
             <div class="field"><label>CEP</label><input id="s_cep" placeholder="00000-000"></div>
             <div class="field"><label>Telefone</label><input id="s_phone" placeholder="(00) 00000-0000"></div>
@@ -566,6 +567,8 @@ Pages.checkout = async function () {
     }
     refreshCheckoutSummary();
   });
+  const cpfEl = app.querySelector('#s_cpf');
+  if (cpfEl) cpfEl.addEventListener('blur', () => { Flow.cpf = cpfEl.value; refreshCheckoutSummary(); });
 };
 
 function setPayment(method) {
@@ -605,7 +608,7 @@ function setPayment(method) {
 let lastTotals = null;
 async function refreshCheckoutSummary() {
   try {
-    const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon, payment: Flow.payment, cep: Flow.cep }));
+    const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon, payment: Flow.payment, cep: Flow.cep, cpf: Flow.cpf }));
     lastTotals = data.totals;
     const wrap = app.querySelector('#summaryWrap');
     if (wrap) { wrap.innerHTML = summaryBox(data.totals, 'checkout'); wireSummary('checkout'); app.querySelector('#placeOrder').addEventListener('click', placeOrder); }
@@ -622,7 +625,7 @@ async function placeOrder() {
   for (const [k, label] of [['name', 'nome'], ['cep', 'CEP'], ['address', 'endereço'], ['city', 'cidade'], ['state', 'estado']]) {
     if (!ship[k]) return toast('Endereço incompleto', 'Preencha o campo: ' + label, 'err');
   }
-  const body = { payment_method: Flow.payment, coupon_code: Flow.coupon, shipping: ship };
+  const body = { payment_method: Flow.payment, coupon_code: Flow.coupon, shipping: ship, cpf: Flow.cpf };
   if (Flow.payment === 'card' && !(Store.chain && Store.chain.mpEnabled)) {
     body.card = { number: app.querySelector('#c_number').value, name: app.querySelector('#c_name').value, expiry: app.querySelector('#c_expiry').value, cvv: app.querySelector('#c_cvv').value };
   }
@@ -722,6 +725,12 @@ function pixPanel(o) {
   </div></div>`;
 }
 function shortAddr(a) { return a ? a.slice(0, 6) + '…' + a.slice(-4) : '—'; }
+function formatDoc(d) {
+  d = String(d || '').replace(/\D/g, '');
+  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  return d;
+}
 function onchainPanel(o) {
   const c = Store.chain;
   return `<div class="panel"><div class="pix-box">
@@ -1153,30 +1162,42 @@ Admin.orders = async function () {
 
 Admin.coupons = async function () {
   loading();
-  const { coupons } = await API.get('/coupons');
+  const [{ coupons }, { report }] = await Promise.all([API.get('/coupons'), API.get('/coupons/report')]);
+  const rep = {}; report.forEach(r => { rep[r.code] = r; });
+  const totalRev = report.reduce((s, r) => s + (r.revenue || 0), 0);
+  const totalComm = report.reduce((s, r) => s + (r.commission || 0), 0);
   mount(adminShell('cupons', `
-    <div class="panel-head"><h1>Cupons</h1></div>
-    <div class="checkout" style="grid-template-columns:1fr 320px;align-items:start">
-      <div class="table-wrap"><table><thead><tr><th>Código</th><th>Desconto</th><th>Mín.</th><th>Cashback</th><th>Status</th><th></th></tr></thead><tbody>
-        ${coupons.map(c => `<tr><td><b>${escapeHtml(c.code)}</b><div class="muted" style="font-size:12px">${escapeHtml(c.description || '')}</div></td>
-          <td>${c.type === 'percent' ? c.value + '%' : money(c.value)}</td><td>${c.min_subtotal ? money(c.min_subtotal) : '—'}</td>
-          <td>${c.cashback_mbv ? mbv(c.cashback_mbv) : '—'}</td>
+    <div class="panel-head"><h1>Cupons & Afiliados</h1><span class="muted">Receita via cupom: <b>${money(totalRev)}</b> · Comissões: <b>${money(totalComm)}</b></span></div>
+    <div class="checkout" style="grid-template-columns:1fr 330px;align-items:start">
+      <div class="table-wrap"><table><thead><tr><th>Código</th><th>Restrição</th><th>Desc.</th><th>Pedidos</th><th>Receita</th><th>Comissão</th><th>Status</th><th></th></tr></thead><tbody>
+        ${coupons.map(c => { const r = rep[c.code] || {}; return `<tr>
+          <td><b>${escapeHtml(c.code)}</b><div class="muted" style="font-size:12px">${escapeHtml(c.description || '')}</div></td>
+          <td style="font-size:12.5px">${c.cpf_cnpj ? '🔒 ' + escapeHtml(formatDoc(c.cpf_cnpj)) : ''}${c.affiliate ? `${c.cpf_cnpj ? '<br>' : ''}👤 ${escapeHtml(c.affiliate)}${c.commission_pct ? ' (' + c.commission_pct + '%)' : ''}` : ''}${!c.cpf_cnpj && !c.affiliate ? '<span class="muted">Público</span>' : ''}</td>
+          <td>${c.type === 'percent' ? c.value + '%' : money(c.value)}</td>
+          <td>${r.paid_orders || 0}${r.orders ? `<div class="muted" style="font-size:11px">${r.orders} no total</div>` : ''}</td>
+          <td><b>${money(r.revenue || 0)}</b></td>
+          <td>${c.commission_pct ? '<b style="color:var(--green-700)">' + money(r.commission || 0) + '</b>' : '—'}</td>
           <td>${c.active ? '<span class="pill pill-paid">Ativo</span>' : '<span class="pill pill-cancelled">Inativo</span>'}</td>
-          <td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-toggle="${c.id}" data-active="${c.active}">${c.active ? 'Desativar' : 'Ativar'}</button> <button class="btn btn-ghost btn-sm" data-cdel="${c.id}" style="color:var(--danger)">${icon('trash', 13)}</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhum cupom.</td></tr>'}
+          <td style="white-space:nowrap"><button class="btn btn-ghost btn-sm" data-toggle="${c.id}" data-active="${c.active}">${c.active ? 'Desativar' : 'Ativar'}</button> <button class="btn btn-ghost btn-sm" data-cdel="${c.id}" style="color:var(--danger)">${icon('trash', 13)}</button></td>
+        </tr>`; }).join('') || '<tr><td colspan="8" class="muted">Nenhum cupom.</td></tr>'}
       </tbody></table></div>
       <div class="panel"><h3>${icon('plus', 18)} Novo cupom</h3>
         <div class="field"><label>Código</label><input id="cc_code" placeholder="COINMAX" style="text-transform:uppercase"></div>
         <div class="grid-2"><div class="field"><label>Tipo</label><select id="cc_type" class="select" style="width:100%"><option value="percent">Percentual (%)</option><option value="fixed">Valor fixo (R$)</option></select></div>
         <div class="field"><label>Valor</label><input id="cc_value" type="number" step="0.01"></div></div>
         <div class="grid-2"><div class="field"><label>Subtotal mín. (R$)</label><input id="cc_min" type="number" value="0"></div>
-        <div class="field"><label>Cashback (MBV)</label><input id="cc_cash" type="number" value="0"></div></div>
+        <div class="field"><label>Cashback (NTR)</label><input id="cc_cash" type="number" value="0"></div></div>
         <div class="field"><label>Descrição</label><input id="cc_desc"></div>
+        <div style="border-top:1px solid var(--line);margin:6px 0 12px;padding-top:12px;font-weight:700;font-size:13px">Restrição & afiliado (opcional)</div>
+        <div class="field"><label>Exclusivo p/ CPF/CNPJ</label><input id="cc_cpf" placeholder="só este documento poderá usar"></div>
+        <div class="grid-2"><div class="field"><label>Afiliado</label><input id="cc_aff" placeholder="nome do afiliado"></div>
+        <div class="field"><label>Comissão (%)</label><input id="cc_comm" type="number" step="0.1" value="0"></div></div>
         <button class="btn btn-primary btn-block" id="cc_save">Criar cupom</button>
       </div>
     </div>`));
   app.querySelector('#cc_save').addEventListener('click', async () => {
     try {
-      await API.post('/coupons', { code: app.querySelector('#cc_code').value, type: app.querySelector('#cc_type').value, value: Number(app.querySelector('#cc_value').value), min_subtotal: Number(app.querySelector('#cc_min').value), cashback_mbv: Number(app.querySelector('#cc_cash').value), description: app.querySelector('#cc_desc').value });
+      await API.post('/coupons', { code: app.querySelector('#cc_code').value, type: app.querySelector('#cc_type').value, value: Number(app.querySelector('#cc_value').value), min_subtotal: Number(app.querySelector('#cc_min').value), cashback_mbv: Number(app.querySelector('#cc_cash').value), description: app.querySelector('#cc_desc').value, cpf_cnpj: app.querySelector('#cc_cpf').value, affiliate: app.querySelector('#cc_aff').value, commission_pct: Number(app.querySelector('#cc_comm').value) });
       toast('Cupom criado', '', 'ok'); Admin.coupons();
     } catch (e) { toast('Ops', e.message, 'err'); }
   });

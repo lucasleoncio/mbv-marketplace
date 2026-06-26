@@ -20,8 +20,8 @@ function getCoupon(code) {
   return db.prepare('SELECT * FROM coupons WHERE code = ? AND active = 1').get(String(code).toUpperCase().trim()) || null;
 }
 
-// Calcula todos os valores. paymentMethod: 'card' | 'pix' | 'mbv'. cep: opcional (frete por região).
-function computeTotals(items, couponCode, paymentMethod, cep) {
+// Calcula todos os valores. paymentMethod: 'card' | 'pix' | 'mbv'. cep: frete por região. cpf: valida cupom restrito.
+function computeTotals(items, couponCode, paymentMethod, cep, cpf) {
   const subtotal = round2(items.reduce((s, it) => s + it.price * it.quantity, 0));
 
   let couponDiscount = 0;
@@ -29,7 +29,11 @@ function computeTotals(items, couponCode, paymentMethod, cep) {
   let couponError = null;
   if (couponCode && !coupon) couponError = 'Cupom inválido ou expirado.';
   if (coupon) {
-    if (subtotal < coupon.min_subtotal) {
+    const doc = String(cpf || '').replace(/\D/g, '');
+    if (coupon.cpf_cnpj && String(coupon.cpf_cnpj).replace(/\D/g, '') !== doc) {
+      couponError = 'Cupom exclusivo para um CPF/CNPJ específico.';
+      coupon = null;
+    } else if (subtotal < coupon.min_subtotal) {
       couponError = `Este cupom exige um subtotal mínimo de R$ ${coupon.min_subtotal.toFixed(2)}.`;
       coupon = null;
     } else if (coupon.type === 'percent') {

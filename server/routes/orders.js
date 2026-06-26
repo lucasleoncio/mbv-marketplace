@@ -46,11 +46,12 @@ router.post('/', requireAuth, async (req, res) => {
   if (!method) return res.status(400).json({ error: 'Selecione uma forma de pagamento.' });
 
   const ship = req.body.shipping || {};
+  const cpf = String(req.body.cpf || ship.cpf || '').trim();
   for (const f of ['name', 'cep', 'address', 'city', 'state']) {
     if (!String(ship[f] || '').trim()) return res.status(400).json({ error: 'Preencha todos os campos de entrega.' });
   }
 
-  const totals = computeTotals(items, req.body.coupon_code, method, ship.cep);
+  const totals = computeTotals(items, req.body.coupon_code, method, ship.cep, cpf);
   if (totals.couponError) return res.status(400).json({ error: totals.couponError });
 
   // Validação por forma de pagamento
@@ -94,8 +95,8 @@ router.post('/', requireAuth, async (req, res) => {
     const code = 'MBV-' + String(100000 + orderId);
     let pixCode = null;
     if (method === 'pix' && !MP.enabled) pixCode = fakePixCode(code, totals.total);
-    db.prepare('UPDATE orders SET code = ?, pix_code = ?, chain_id = ? WHERE id = ?')
-      .run(code, pixCode, onchain ? CHAIN.chainId : null, orderId);
+    db.prepare('UPDATE orders SET code = ?, pix_code = ?, chain_id = ?, cpf_cnpj = ? WHERE id = ?')
+      .run(code, pixCode, onchain ? CHAIN.chainId : null, cpf.replace(/\D/g, '') || null, orderId);
 
     // Itens + baixa de estoque
     const insItem = db.prepare('INSERT INTO order_items (order_id, product_id, name, price, quantity, unit, image) VALUES (?,?,?,?,?,?,?)');

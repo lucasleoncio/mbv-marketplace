@@ -201,7 +201,11 @@ CREATE INDEX IF NOT EXISTS idx_tx_user ON transactions(user_id);
 for (const stmt of [
   'ALTER TABLE orders ADD COLUMN tx_hash TEXT',
   'ALTER TABLE orders ADD COLUMN chain_id INTEGER',
-  'ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0'
+  'ALTER TABLE orders ADD COLUMN cpf_cnpj TEXT',
+  'ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE coupons ADD COLUMN cpf_cnpj TEXT',
+  'ALTER TABLE coupons ADD COLUMN affiliate TEXT',
+  'ALTER TABLE coupons ADD COLUMN commission_pct REAL NOT NULL DEFAULT 0'
 ]) { try { db.exec(stmt); } catch (_) {} }
 
 module.exports = db;

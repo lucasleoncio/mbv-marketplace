@@ -9,7 +9,7 @@ router.use(requireAuth);
 // GET /api/cart  -> itens + totais (aceita ?coupon= e ?payment= para pré-visualizar)
 router.get('/', (req, res) => {
   const items = getCartItems(req.user.id);
-  const totals = computeTotals(items, req.query.coupon, req.query.payment, req.query.cep);
+  const totals = computeTotals(items, req.query.coupon, req.query.payment, req.query.cep, req.query.cpf);
   res.json({ items, totals, count: items.reduce((s, i) => s + i.quantity, 0) });
 });
 
