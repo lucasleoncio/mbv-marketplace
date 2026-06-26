@@ -386,6 +386,12 @@ Pages.product = async function (id) {
           <button class="btn btn-dark btn-lg" id="buyBtn" ${p.stock <= 0 ? 'disabled' : ''}>Comprar agora</button>
           <button class="btn btn-ghost btn-lg fav ${fav ? 'on' : ''}" data-fav="${p.id}" style="${fav ? 'color:var(--danger)' : ''}">${iconFill('heart', 18)}</button>
         </div>
+        <div class="trust-row">
+          <div><div class="ic">${icon('shield', 18)}</div><span>Compra<br>protegida</span></div>
+          <div><div class="ic">${icon('truck', 18)}</div><span>Entrega<br>todo o Brasil</span></div>
+          <div><div class="ic">${iconFill('coin', 18)}</div><span>Cartão, Pix<br>ou NTR</span></div>
+          <div><div class="ic">${icon('leaf', 18)}</div><span>Tecnologia<br>COT/PVE</span></div>
+        </div>
         ${p.co2 ? `<div class="eco-note"><div class="ic">${icon('leaf', 20)}</div><div><b>Impacto positivo</b><br><span class="muted" style="font-size:13.5px">Cada unidade evita cerca de ${p.co2} kg de CO₂ na sua operação.</span></div></div>` : ''}
         <div class="desc">${escapeHtml(p.description || '')}</div>
       </div>
@@ -402,6 +408,11 @@ Pages.product = async function (id) {
           <button class="btn btn-primary" id="rvSubmit">Enviar avaliação</button>
         </div>` : `<p class="muted" style="padding-top:14px"><a href="/entrar" style="color:var(--green-700);font-weight:600">Entre na sua conta</a> para avaliar.</p>`}
       </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2>Perguntas frequentes</h2></div>
+      <div class="faq">${productFAQ(p).map(f => `<details><summary>${escapeHtml(f.q)}</summary><div>${escapeHtml(f.a)}</div></details>`).join('')}</div>
     </section>
 
     ${related.length ? `<section class="section"><div class="section-head"><h2>Você também pode gostar</h2></div><div class="product-grid">${related.map(productCard).join('')}</div></section>` : ''}
@@ -421,6 +432,17 @@ Pages.product = async function (id) {
     } catch (e) { toast('Ops', e.message, 'err'); }
   });
 };
+function productFAQ(p) {
+  const cert = (p.badges && p.badges.length) ? p.badges.join(', ') : 'biotecnologia COT/PVE';
+  return [
+    { q: `O ${p.name} é sustentável?`, a: `Sim. É produzido com ${cert}, dentro da proposta de agricultura regenerativa do MBV.` },
+    { q: 'Quais as formas de pagamento?', a: 'Cartão, Pix ou o token Neutrotan (NTR). Pagando em NTR você ganha 5% de desconto e cashback.' },
+    { q: 'Qual o prazo e o valor do frete?', a: 'O frete é calculado pelo seu CEP no checkout. Em compras acima de R$ 500, o frete é grátis.' },
+    { q: 'Posso trocar ou devolver?', a: 'Sim. Você tem até 7 dias corridos após o recebimento para desistir, conforme o Código de Defesa do Consumidor.' },
+    ...(p.co2 ? [{ q: 'Qual o impacto ambiental?', a: `Cada unidade evita cerca de ${p.co2} kg de CO₂ na sua operação.` }] : []),
+    { q: 'Como descubro a dosagem ideal?', a: 'Nossa equipe técnica orienta dosagem e manejo pelo WhatsApp +55 48 9174-1610.' }
+  ];
+}
 function reviewRow(r) {
   return `<div class="review" style="display:flex;gap:14px"><div class="avatar">${escapeHtml((r.user_name || 'U')[0].toUpperCase())}</div>
     <div style="flex:1"><div style="display:flex;justify-content:space-between"><b>${escapeHtml(r.user_name || 'Cliente')}</b><span class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span></div>

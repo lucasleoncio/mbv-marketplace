@@ -35,6 +35,15 @@ function productPage(id) {
   const url = `${APP_URL}/produto/${p.id}/${p.slug || ''}`.replace(/\/+$/, '');
   const desc = ((p.description || '').slice(0, 158)) || 'Insumo sustentável do MBV.';
   const img = p.image && /^https?:/.test(p.image) ? p.image : OG_DEFAULT;
+  let badges = []; try { badges = JSON.parse(p.badges || '[]'); } catch (_) {}
+  const cert = badges.length ? badges.join(', ') : 'biotecnologia COT/PVE';
+  const faq = [
+    { q: `O ${p.name} é sustentável?`, a: `Sim. É produzido com ${cert}, dentro da proposta de agricultura regenerativa do MBV.` },
+    { q: 'Quais as formas de pagamento?', a: 'Cartão, Pix ou o token Neutrotan (NTR). Pagando em NTR você ganha 5% de desconto e cashback.' },
+    { q: 'Qual o prazo e o valor do frete?', a: 'O frete é calculado pelo seu CEP no checkout. Em compras acima de R$ 500, o frete é grátis.' },
+    { q: 'Posso trocar ou devolver?', a: 'Sim. Você tem até 7 dias corridos após o recebimento, conforme o Código de Defesa do Consumidor.' },
+    ...(p.co2 ? [{ q: 'Qual o impacto ambiental?', a: `Cada unidade evita cerca de ${p.co2} kg de CO₂ na sua operação.` }] : [])
+  ];
   const jsonld = ld({
     '@context': 'https://schema.org', '@type': 'Product',
     name: p.name, description: p.description || desc, image: img, sku: 'MBV-' + p.id,
@@ -48,6 +57,9 @@ function productPage(id) {
       { '@type': 'ListItem', position: 2, name: p.category_name || 'Produtos', item: `${APP_URL}/produtos?cat=${p.category_slug || ''}` },
       { '@type': 'ListItem', position: 3, name: p.name, item: url }
     ]
+  }) + ld({
+    '@context': 'https://schema.org', '@type': 'FAQPage',
+    mainEntity: faq.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } }))
   });
   const ssr = `<div class="container"><article style="max-width:780px;margin:30px auto">
     <nav style="font-size:13px;color:#5d6f64">Início › ${esc(p.category_name || '')}</nav>
@@ -56,6 +68,8 @@ function productPage(id) {
     <p>${esc(p.description || '')}</p>
     <ul><li>Embalagem: ${esc(p.pack_size || '—')}</li><li>Unidade: ${esc(p.unit)}</li>${p.co2 ? `<li>CO₂ evitado: ${p.co2} kg por unidade</li>` : ''}</ul>
     <p>Pague com Cartão, Pix ou o token Neutrotan (NTR) na rede Polygon.</p>
+    <h2>Perguntas frequentes</h2>
+    <dl>${faq.map(f => `<dt><strong>${esc(f.q)}</strong></dt><dd>${esc(f.a)}</dd>`).join('')}</dl>
   </article></div>`;
   return { title: `${p.name} — MBV`, description: desc, canonical: url, ogTitle: p.name, ogDesc: desc, ogImage: img, jsonld, ssr };
 }
