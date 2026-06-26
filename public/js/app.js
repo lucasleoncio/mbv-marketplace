@@ -55,8 +55,11 @@ function renderHeader() {
   const cats = Store.categories.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('');
   h.innerHTML = `
   <div class="topbar"><div class="container">
-    <span>🌱 Regenerar para produzir · Desde 1992 · Frete grátis acima de R$ 500</span>
-    <span>${u ? 'Olá, ' + escapeHtml(u.name.split(' ')[0]) : 'Insumos sustentáveis para o seu cultivo'}</span>
+    <span class="topbar-tag">🌱 Regenerar para produzir · Desde 1992 · Frete grátis acima de R$ 500</span>
+    <span class="topbar-right">
+      <a class="topbar-inst" href="https://mbv-site.onrender.com/pt/index.html" target="_blank" rel="noopener" title="Abrir o site institucional do MBV">Site institucional <span aria-hidden="true">↗</span></a>
+      <span class="topbar-greet">${u ? 'Olá, ' + escapeHtml(u.name.split(' ')[0]) : 'Insumos sustentáveis para o seu cultivo'}</span>
+    </span>
   </div></div>
   <div class="header"><div class="container">
     <div class="header-main">
@@ -130,7 +133,7 @@ function renderFooter() {
       <div><h5>Institucional</h5><a href="/sobre">Sobre</a><a href="/contato">Contato</a><a href="/faq">FAQ</a><a href="/termos">Termos de uso</a><a href="/privacidade">Privacidade</a><a href="/trocas">Trocas e devoluções</a></div>
       <div><h5>Neutrotan (NTR)</h5><a href="/carteira">Saldo & extrato</a><a href="/checkout">Pagar com cripto</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">Utility token ERC-20 na rede Polygon.<br>Lastro real em cote · 1 NTR = R$ 9,36.</span></div>
     </div>
-    <div class="footer-bottom"><span>© 2026 Grupo Movimento Brasil Verde · CNPJ 54.224.102/0001-10</span><span>Cartão · Pix · Neutrotan (NTR) 🌱</span></div>
+    <div class="footer-bottom"><span>© 2026 Grupo Movimento Brasil Verde · CNPJ 54.224.102/0001-10</span><span style="display:inline-flex;align-items:center;gap:16px;flex-wrap:wrap"><span>Cartão · Pix · Neutrotan (NTR) 🌱</span><span class="demo"><a class="petrus-credit" href="https://www.petrus-software.com" target="_blank" rel="noopener" aria-label="Petrus — petrus-software.com">Desenvolvido por <span class="petrus-chip"><img src="/img/petrus-logo.svg" alt="Petrus" height="15" loading="lazy"></span></a></span></span></div>
   </div></div>`;
 }
 

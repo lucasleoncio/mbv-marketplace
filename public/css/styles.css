@@ -61,6 +61,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .topbar{background:var(--green-900);color:#cfe9d6;font-size:12.5px}
 .topbar .container{display:flex;justify-content:space-between;align-items:center;height:34px}
 .topbar a{color:#cfe9d6}
+.topbar-right{display:inline-flex;align-items:center;gap:14px}
+.topbar-inst{display:inline-flex;align-items:center;gap:5px;background:rgba(154,211,107,.16);border:1px solid rgba(154,211,107,.5);color:#eafff0!important;border-radius:999px;padding:3px 12px;font-weight:600;line-height:1.5;transition:.15s}
+.topbar-inst:hover{background:var(--lime);color:#15391f!important;border-color:var(--lime)}
+@media (max-width:640px){.topbar-tag{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50vw}.topbar-greet{display:none}}
 .header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .header-main{display:flex;align-items:center;gap:22px;height:72px}
 .logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:22px;color:var(--green-900)}
@@ -280,6 +284,11 @@ tr:last-child td{border-bottom:0}
 .footer a:hover{color:var(--lime)}
 .footer .logo{color:#fff} .footer .logo small{color:#8fbf9e}
 .footer-bottom{border-top:1px solid rgba(255,255,255,.12);margin-top:34px;padding-top:20px;display:flex;justify-content:space-between;font-size:12.5px;flex-wrap:wrap;gap:10px}
+.footer-bottom .demo{color:var(--lime);font-weight:600}
+.petrus-credit{display:inline-flex;align-items:center;gap:.5rem;color:#bfe0c9;font-weight:600}
+.petrus-credit:hover{color:#fff}
+.petrus-chip{background:#fff;border-radius:6px;padding:3px 7px;display:inline-flex;align-items:center;line-height:0}
+.petrus-chip img{height:15px;width:auto;display:block}
 .social{display:flex;gap:10px;margin-top:18px}
 .social a{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.1);color:#cfe9d6;transition:.16s}
 .social a:hover{background:var(--lime);color:#13412f;transform:translateY(-2px)}
