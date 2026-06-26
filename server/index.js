@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { PORT } = require('./config');
+const { PORT, APP_URL } = require('./config');
 const { authOptional } = require('./middleware/auth');
 const { ensureSeed } = require('./seed');
 
@@ -36,11 +36,25 @@ app.post('/api/client-error', (req, res) => {
   res.sendStatus(204);
 });
 
-// Frontend (SPA)
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// Sitemap dinâmico (produtos + categorias) — antes do static
+app.get('/sitemap.xml', (_req, res) => {
+  const db = require('./db');
+  const cats = db.prepare('SELECT slug FROM categories').all();
+  const prods = db.prepare('SELECT id, slug FROM products WHERE active = 1').all();
+  const urls = [APP_URL + '/', APP_URL + '/produtos',
+    ...cats.map(c => `${APP_URL}/produtos?cat=${c.slug}`),
+    ...prods.map(p => `${APP_URL}/produto/${p.id}/${p.slug || ''}`),
+    ...['sobre', 'faq', 'contato', 'termos', 'privacidade', 'trocas'].map(s => `${APP_URL}/${s}`)];
+  res.type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') + '\n</urlset>');
+});
+
+// Frontend: estáticos (sem auto-index — o SSR cuida das páginas HTML)
+app.use(express.static(path.join(__dirname, '..', 'public'), { index: false }));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return next();
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  res.set('Cache-Control', 'no-cache');
+  res.send(require('./lib/seo').renderHTML(req));
 });
 
 // Handler de erros

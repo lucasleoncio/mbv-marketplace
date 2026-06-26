@@ -99,13 +99,13 @@ const UI = (function () {
     const badges = (p.badges || []).slice(0, 2).map(b => `<span class="badge-soft">${UI.icon('leaf', 11)} ${escapeHtml(b)}</span>`).join('');
     return `<article class="card" data-card="${p.id}">
       <div class="thumb">
-        <a href="#/produto/${p.id}"><img loading="lazy" src="${productImage(p)}" onerror="${imgFallback(p)}" alt="${escapeHtml(p.name)}"></a>
+        <a href="/produto/${p.id}/${p.slug || ''}"><img loading="lazy" src="${productImage(p)}" onerror="${imgFallback(p)}" alt="${escapeHtml(p.name)}"></a>
         ${off ? `<span class="tag-off">-${off}%</span>` : ''}
         <button class="fav ${fav ? 'on' : ''}" data-fav="${p.id}" title="Favoritar">${iconFill('heart', 17)}</button>
       </div>
       <div class="body">
         <span class="cat">${escapeHtml(p.category_name || '')}</span>
-        <a href="#/produto/${p.id}" class="title">${escapeHtml(p.name)}</a>
+        <a href="/produto/${p.id}/${p.slug || ''}" class="title">${escapeHtml(p.name)}</a>
         <div class="badges">${badges}</div>
         <div class="rating">${stars(p.rating, p.rating_count)}</div>
         <div class="price-row">

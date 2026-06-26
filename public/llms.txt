@@ -1,0 +1,23 @@
+# MBV — Movimento Brasil Verde
+
+> Marketplace de insumos sustentáveis para o agronegócio regenerativo, do Grupo Movimento Brasil Verde (desde 1992). Vende bioinsumos da linha COT/PVE, fertilizantes ecológicos, sementes, mudas e soluções de energia e irrigação. Pagamento com Cartão, Pix ou o utility token Neutrotan (NTR) na rede Polygon.
+
+## Sobre
+- Empresa: Grupo Movimento Brasil Verde (CNPJ 54.224.102/0001-10).
+- Posicionamento: regeneração com ciência — biotecnologia COT/PVE, reflorestamento biossustentável, saneamento, ESG e transparência em blockchain. Signatária do Pacto Global da ONU e alinhada aos ODS.
+- Slogan: "Regenerar para produzir."
+- Prova: até +70% de produtividade na soja em áreas degradadas.
+
+## Páginas principais
+- Loja: https://mbv-marketplace.onrender.com/
+- Produtos: https://mbv-marketplace.onrender.com/produtos
+- Sobre: https://mbv-marketplace.onrender.com/sobre
+- FAQ: https://mbv-marketplace.onrender.com/faq
+- Contato: https://mbv-marketplace.onrender.com/contato
+- Sitemap: https://mbv-marketplace.onrender.com/sitemap.xml
+
+## Token
+- Neutrotan (NTR): utility token ERC-20 na rede Polygon, com lastro em "cote" (composto orgânico), usado para adquirir insumos no marketplace, com desconto e cashback.
+
+## Contato
+- WhatsApp: +55 48 9174-1610 · E-mail: contato@movimentobrasilverde.com

@@ -20,9 +20,9 @@ async function createPreference(order, user, method) {
     external_reference: String(order.id),
     statement_descriptor: 'MBV',
     back_urls: {
-      success: `${APP_URL}/#/pedido/${order.id}`,
-      pending: `${APP_URL}/#/pedido/${order.id}`,
-      failure: `${APP_URL}/#/pedido/${order.id}`
+      success: `${APP_URL}/pedido/${order.id}`,
+      pending: `${APP_URL}/pedido/${order.id}`,
+      failure: `${APP_URL}/pedido/${order.id}`
     },
     auto_return: 'approved',
     notification_url: `${APP_URL}/api/webhooks/mercadopago`,

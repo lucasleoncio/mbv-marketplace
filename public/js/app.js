@@ -5,14 +5,18 @@ const { icon, iconFill, money, mbv, ntr, escapeHtml, stars, productImage, produc
 const app = document.getElementById('app');
 
 /* ---------------- Router ---------------- */
-function parseHash() {
-  let h = location.hash.replace(/^#/, '') || '/';
-  const [path, qs] = h.split('?');
+function parseRoute() {
+  const parts = location.pathname.split('/').filter(Boolean);
   const query = {};
-  if (qs) qs.split('&').forEach(kv => { const [k, v] = kv.split('='); if (k) query[decodeURIComponent(k)] = decodeURIComponent(v || ''); });
-  return { parts: path.split('/').filter(Boolean), query, path };
+  new URLSearchParams(location.search).forEach((v, k) => { query[k] = v; });
+  return { parts, query, path: location.pathname };
 }
-function go(hash) { location.hash = hash; }
+function go(to) {
+  if (to === location.pathname + location.search) { render(); return; }
+  history.pushState({}, '', to);
+  render();
+  if (window.gtag) gtag('event', 'page_view', { page_location: location.href });
+}
 function buildQuery(obj) {
   const q = Object.entries(obj).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
   return q ? '?' + q : '';
@@ -21,7 +25,7 @@ function mount(html) { app.innerHTML = html; window.scrollTo(0, 0); }
 function loading() { mount(`<div class="container"><div class="loader">${icon('leaf', 26)}<br>Carregando…</div></div>`); }
 
 async function render() {
-  const { parts, query } = parseHash();
+  const { parts, query } = parseRoute();
   const r = parts[0] || '';
   try {
     if (r === '') return Pages.home();
@@ -48,7 +52,7 @@ async function render() {
 function renderHeader() {
   const h = document.getElementById('site-header');
   const u = Store.user;
-  const cats = Store.categories.map(c => `<a href="#/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('');
+  const cats = Store.categories.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('');
   h.innerHTML = `
   <div class="topbar"><div class="container">
     <span>🌱 Regenerar para produzir · Desde 1992 · Frete grátis acima de R$ 500</span>
@@ -56,27 +60,27 @@ function renderHeader() {
   </div></div>
   <div class="header"><div class="container">
     <div class="header-main">
-      <a href="#/" class="logo"><img class="mark" src="https://movimentobrasilverde.com/wp-content/uploads/2026/04/cropped-Icone-MBV-270x270.png" alt="MBV — Movimento Brasil Verde" width="40" height="40" onerror="this.onerror=null;this.src='/img/logo.svg'"><span>MBV<small>MOVIMENTO BRASIL VERDE</small></span></a>
+      <a href="/" class="logo"><img class="mark" src="https://movimentobrasilverde.com/wp-content/uploads/2026/04/cropped-Icone-MBV-270x270.png" alt="MBV — Movimento Brasil Verde" width="40" height="40" onerror="this.onerror=null;this.src='/img/logo.svg'"><span>MBV<small>MOVIMENTO BRASIL VERDE</small></span></a>
       <form class="search" id="searchForm">
         <input id="searchInput" placeholder="Buscar fertilizantes, sementes, energia solar…" />
         <button type="submit">${icon('search', 18)}</button>
       </form>
       <div class="header-actions">
-        ${u ? `<a href="#/carteira" class="wallet-chip" title="Carteira Neutrotan (NTR)"><span class="tk">${iconFill('coin', 12)}</span><span>${mbv(Store.balance)}</span></a>` : ''}
-        <a href="#/carrinho" class="icon-btn" title="Carrinho">${icon('cart', 19)}<span class="lbl">Carrinho</span>${Store.cartCount ? `<span class="count">${Store.cartCount}</span>` : ''}</a>
+        ${u ? `<a href="/carteira" class="wallet-chip" title="Carteira Neutrotan (NTR)"><span class="tk">${iconFill('coin', 12)}</span><span>${mbv(Store.balance)}</span></a>` : ''}
+        <a href="/carrinho" class="icon-btn" title="Carrinho">${icon('cart', 19)}<span class="lbl">Carrinho</span>${Store.cartCount ? `<span class="count">${Store.cartCount}</span>` : ''}</a>
         <div class="menu" id="acctMenu">
           <button class="icon-btn" id="acctBtn">${icon('user', 19)}<span class="lbl">${u ? 'Conta' : 'Entrar'}</span></button>
           <div class="menu-pop hide" id="acctPop">
             ${u ? `
-              <a href="#/conta">${icon('user', 17)} Minha conta</a>
-              <a href="#/pedidos">${icon('box', 17)} Meus pedidos</a>
-              <a href="#/carteira">${icon('wallet', 17)} Carteira NTR</a>
-              <a href="#/favoritos">${iconFill('heart', 17)} Favoritos</a>
-              ${Store.isAdmin() ? `<div class="sep"></div><a href="#/admin">${icon('grid', 17)} Painel Admin</a>` : ''}
+              <a href="/conta">${icon('user', 17)} Minha conta</a>
+              <a href="/pedidos">${icon('box', 17)} Meus pedidos</a>
+              <a href="/carteira">${icon('wallet', 17)} Carteira NTR</a>
+              <a href="/favoritos">${iconFill('heart', 17)} Favoritos</a>
+              ${Store.isAdmin() ? `<div class="sep"></div><a href="/admin">${icon('grid', 17)} Painel Admin</a>` : ''}
               <div class="sep"></div><button id="logoutBtn">${icon('logout', 17)} Sair</button>
             ` : `
-              <a href="#/entrar">${icon('user', 17)} Entrar</a>
-              <a href="#/entrar?tab=register">${icon('plus', 17)} Criar conta</a>
+              <a href="/entrar">${icon('user', 17)} Entrar</a>
+              <a href="/entrar?tab=register">${icon('plus', 17)} Criar conta</a>
             `}
           </div>
         </div>
@@ -84,8 +88,8 @@ function renderHeader() {
     </div>
   </div>
   <div class="navrow"><div class="container">
-    <a href="#/produtos">${icon('grid', 15)} Todos</a>${cats}
-    <a href="#/produtos${buildQuery({ sort: 'price_asc' })}" style="margin-left:auto;color:var(--gold)">${iconFill('tag', 14)} Ofertas</a>
+    <a href="/produtos">${icon('grid', 15)} Todos</a>${cats}
+    <a href="/produtos${buildQuery({ sort: 'price_asc' })}" style="margin-left:auto;color:var(--gold)">${iconFill('tag', 14)} Ofertas</a>
   </div></div>
   </div>`;
 
@@ -112,7 +116,7 @@ function renderFooter() {
   document.getElementById('site-footer').innerHTML = `<div class="footer"><div class="container">
     <div class="footer-grid">
       <div>
-        <a href="#/" class="logo" style="color:#fff;gap:0" aria-label="MBV — Movimento Brasil Verde"><img src="https://movimentobrasilverde.com/wp-content/uploads/2026/01/logo_branca.webp" alt="Movimento Brasil Verde" style="height:46px;width:auto;max-width:240px" onerror="this.style.display='none';var l=document.getElementById('footLock');if(l)l.style.display='flex'"><span id="footLock" style="display:none;align-items:center;gap:10px"><img class="mark" src="/img/logo.svg" width="40" height="40"><span>MBV<small style="color:#8fbf9e">MOVIMENTO BRASIL VERDE</small></span></span></a>
+        <a href="/" class="logo" style="color:#fff;gap:0" aria-label="MBV — Movimento Brasil Verde"><img src="https://movimentobrasilverde.com/wp-content/uploads/2026/01/logo_branca.webp" alt="Movimento Brasil Verde" style="height:46px;width:auto;max-width:240px" onerror="this.style.display='none';var l=document.getElementById('footLock');if(l)l.style.display='flex'"><span id="footLock" style="display:none;align-items:center;gap:10px"><img class="mark" src="/img/logo.svg" width="40" height="40"><span>MBV<small style="color:#8fbf9e">MOVIMENTO BRASIL VERDE</small></span></span></a>
         <p style="margin-top:14px;max-width:300px;font-size:13.5px;line-height:1.6">Marketplace de insumos que regeneram o solo e protegem o meio ambiente. Pague com Cartão, Pix ou o token <b style="color:var(--lime)">Neutrotan (NTR)</b>.</p>
         <div class="social">
           <a href="https://www.instagram.com/mbv.oficial/" target="_blank" rel="noopener" aria-label="Instagram">${socialIcon('instagram')}</a>
@@ -121,10 +125,10 @@ function renderFooter() {
           <a href="https://www.youtube.com/@MovimentoBrasilVerde" target="_blank" rel="noopener" aria-label="YouTube">${socialIcon('youtube')}</a>
         </div>
       </div>
-      <div><h5>Categorias</h5>${Store.categories.map(c => `<a href="#/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('')}</div>
-      <div><h5>Conta</h5><a href="#/conta">Minha conta</a><a href="#/pedidos">Meus pedidos</a><a href="#/carteira">Carteira Neutrotan (NTR)</a><a href="#/favoritos">Favoritos</a></div>
-      <div><h5>Institucional</h5><a href="#/sobre">Sobre</a><a href="#/contato">Contato</a><a href="#/faq">FAQ</a><a href="#/termos">Termos de uso</a><a href="#/privacidade">Privacidade</a><a href="#/trocas">Trocas e devoluções</a></div>
-      <div><h5>Neutrotan (NTR)</h5><a href="#/carteira">Saldo & extrato</a><a href="#/checkout">Pagar com cripto</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">Utility token ERC-20 na rede Polygon.<br>Lastro real em cote · 1 NTR = R$ 9,36.</span></div>
+      <div><h5>Categorias</h5>${Store.categories.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('')}</div>
+      <div><h5>Conta</h5><a href="/conta">Minha conta</a><a href="/pedidos">Meus pedidos</a><a href="/carteira">Carteira Neutrotan (NTR)</a><a href="/favoritos">Favoritos</a></div>
+      <div><h5>Institucional</h5><a href="/sobre">Sobre</a><a href="/contato">Contato</a><a href="/faq">FAQ</a><a href="/termos">Termos de uso</a><a href="/privacidade">Privacidade</a><a href="/trocas">Trocas e devoluções</a></div>
+      <div><h5>Neutrotan (NTR)</h5><a href="/carteira">Saldo & extrato</a><a href="/checkout">Pagar com cripto</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">Utility token ERC-20 na rede Polygon.<br>Lastro real em cote · 1 NTR = R$ 9,36.</span></div>
     </div>
     <div class="footer-bottom"><span>© 2026 Grupo Movimento Brasil Verde · CNPJ 54.224.102/0001-10</span><span>Cartão · Pix · Neutrotan (NTR) 🌱</span></div>
   </div></div>`;
@@ -132,7 +136,7 @@ function renderFooter() {
 
 /* ---------------- Ações globais (carrinho/favoritos) ---------------- */
 async function addToCart(id, qty = 1) {
-  if (!Store.isAuthed()) { toast('Entre na sua conta', 'Faça login para comprar.', 'info'); return go('/entrar?next=' + encodeURIComponent(location.hash)); }
+  if (!Store.isAuthed()) { toast('Entre na sua conta', 'Faça login para comprar.', 'info'); return go('/entrar?next=' + encodeURIComponent(location.pathname + location.search)); }
   try {
     const r = await API.post('/cart', { product_id: Number(id), quantity: qty });
     Store.cartCount = r.count; renderHeader(); toast('Adicionado ao carrinho', '', 'ok');
@@ -147,14 +151,19 @@ async function toggleFav(id) {
   } catch (e) { toast('Ops', e.message, 'err'); }
 }
 document.addEventListener('click', e => {
-  const add = e.target.closest('[data-add]'); if (add) { e.preventDefault(); addToCart(add.dataset.add); }
-  const fav = e.target.closest('[data-fav]'); if (fav) { e.preventDefault(); toggleFav(fav.dataset.fav); }
+  const add = e.target.closest('[data-add]'); if (add) { e.preventDefault(); addToCart(add.dataset.add); return; }
+  const fav = e.target.closest('[data-fav]'); if (fav) { e.preventDefault(); toggleFav(fav.dataset.fav); return; }
+  const a = e.target.closest('a');
+  if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+    const href = a.getAttribute('href');
+    if (href && href.charAt(0) === '/' && a.target !== '_blank' && !a.hasAttribute('download')) { e.preventDefault(); go(href); }
+  }
 });
 
 /* ---------------- Páginas ---------------- */
 const Pages = {};
 
-Pages.notFound = () => mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('search', 30)}</div><h2>Página não encontrada</h2><p class="muted">O endereço acessado não existe.</p><a href="#/" class="btn btn-primary" style="margin-top:14px">Voltar à loja</a></div></div>`);
+Pages.notFound = () => mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('search', 30)}</div><h2>Página não encontrada</h2><p class="muted">O endereço acessado não existe.</p><a href="/" class="btn btn-primary" style="margin-top:14px">Voltar à loja</a></div></div>`);
 
 /* ---------- PÁGINAS INSTITUCIONAIS / LEGAIS ---------- */
 const STATIC_PAGES = {
@@ -219,7 +228,7 @@ const STATIC_PAGES = {
 Pages.page = function (slug) {
   const p = STATIC_PAGES[slug];
   if (!p) return Pages.notFound();
-  mount(`<div class="container"><div class="breadcrumb"><a href="#/">Início</a> ${icon('arrow', 13)} <span>${escapeHtml(p.crumb)}</span></div>${p.html}</div>`);
+  mount(`<div class="container"><div class="breadcrumb"><a href="/">Início</a> ${icon('arrow', 13)} <span>${escapeHtml(p.crumb)}</span></div>${p.html}</div>`);
   if (slug === 'contato') {
     const b = app.querySelector('#ct_send');
     if (b) b.addEventListener('click', () => {
@@ -246,8 +255,8 @@ Pages.home = async function () {
         <h1>Insumos que regeneram o solo — e fazem o planeta prosperar</h1>
         <p>Biotecnologia COT/PVE, fertilizantes ecológicos, reflorestamento e energia limpa. Compre com Cartão, Pix ou pague com o token <b>Neutrotan (NTR)</b> e ganhe desconto.</p>
         <div class="cta">
-          <a href="#/produtos" class="btn btn-lg" style="background:var(--lime);color:#15391f">Explorar produtos ${icon('arrow', 18)}</a>
-          <a href="#/carteira" class="btn btn-lg btn-ghost">Conhecer o token NTR</a>
+          <a href="/produtos" class="btn btn-lg" style="background:var(--lime);color:#15391f">Explorar produtos ${icon('arrow', 18)}</a>
+          <a href="/carteira" class="btn btn-lg btn-ghost">Conhecer o token NTR</a>
         </div>
         <div class="hero-stats"><div><b>30+</b><span>anos regenerando</span></div><div><b>+70%</b><span>produtividade na soja</span></div><div><b>5%</b><span>desconto pagando em NTR</span></div></div>
       </div>
@@ -278,12 +287,12 @@ Pages.home = async function () {
     </section>
 
     <section class="section">
-      <div class="section-head"><div><span class="eyebrow">Navegue por</span><h2>Categorias</h2></div><a href="#/produtos" class="btn btn-ghost btn-sm">Ver tudo ${icon('arrow', 15)}</a></div>
-      <div class="cat-grid">${cats.map(c => `<a href="#/produtos${buildQuery({ cat: c.slug })}" class="cat-tile"><div class="ic">${icon(c.icon || 'leaf', 24)}</div><b>${escapeHtml(c.name.split(' ')[0])}</b><span>${c.product_count} itens</span></a>`).join('')}</div>
+      <div class="section-head"><div><span class="eyebrow">Navegue por</span><h2>Categorias</h2></div><a href="/produtos" class="btn btn-ghost btn-sm">Ver tudo ${icon('arrow', 15)}</a></div>
+      <div class="cat-grid">${cats.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}" class="cat-tile"><div class="ic">${icon(c.icon || 'leaf', 24)}</div><b>${escapeHtml(c.name.split(' ')[0])}</b><span>${c.product_count} itens</span></a>`).join('')}</div>
     </section>
 
     <section class="section">
-      <div class="section-head"><div><span class="eyebrow">Seleção MBV</span><h2>Destaques</h2><p>Os queridinhos de quem produz com responsabilidade.</p></div><a href="#/produtos${buildQuery({ sort: 'rating' })}" class="btn btn-ghost btn-sm">Mais vendidos</a></div>
+      <div class="section-head"><div><span class="eyebrow">Seleção MBV</span><h2>Destaques</h2><p>Os queridinhos de quem produz com responsabilidade.</p></div><a href="/produtos${buildQuery({ sort: 'rating' })}" class="btn btn-ghost btn-sm">Mais vendidos</a></div>
       <div class="product-grid">${featured.map(productCard).join('')}</div>
     </section>
 
@@ -292,7 +301,7 @@ Pages.home = async function () {
         <span class="eyebrow" style="color:var(--lime)">Sustentabilidade que dá lucro</span>
         <h1 style="font-size:32px">Do solo à energia: tudo para um agro mais limpo</h1>
         <p style="margin:14px auto 22px">Junte-se a produtores que já reduzem custos e emissões com a linha MBV.</p>
-        <a href="#/produtos" class="btn btn-lg" style="background:var(--lime);color:#15391f">Começar a comprar</a>
+        <a href="/produtos" class="btn btn-lg" style="background:var(--lime);color:#15391f">Começar a comprar</a>
       </div>
     </div></div></section>
 
@@ -313,7 +322,7 @@ Pages.catalog = async function (query) {
   const curCat = cats.find(c => c.slug === params.cat);
 
   mount(`<div class="container">
-    <div class="breadcrumb"><a href="#/">Início</a> ${icon('arrow', 13)} <span>${curCat ? escapeHtml(curCat.name) : params.q ? 'Busca: ' + escapeHtml(params.q) : 'Todos os produtos'}</span></div>
+    <div class="breadcrumb"><a href="/">Início</a> ${icon('arrow', 13)} <span>${curCat ? escapeHtml(curCat.name) : params.q ? 'Busca: ' + escapeHtml(params.q) : 'Todos os produtos'}</span></div>
     <div class="catalog">
       <aside class="filters">
         <h4>Categorias</h4>
@@ -349,7 +358,7 @@ Pages.product = async function (id) {
   const off = p.compare_at_price && p.compare_at_price > p.price ? Math.round((1 - p.price / p.compare_at_price) * 100) : 0;
   const fav = Store.favorites.has(p.id);
   mount(`<div class="container">
-    <div class="breadcrumb"><a href="#/">Início</a> ${icon('arrow', 13)} <a href="#/produtos${buildQuery({ cat: p.category_slug })}">${escapeHtml(p.category_name)}</a> ${icon('arrow', 13)} <span>${escapeHtml(p.name)}</span></div>
+    <div class="breadcrumb"><a href="/">Início</a> ${icon('arrow', 13)} <a href="/produtos${buildQuery({ cat: p.category_slug })}">${escapeHtml(p.category_name)}</a> ${icon('arrow', 13)} <span>${escapeHtml(p.name)}</span></div>
     <div class="pdp">
       <div class="pdp-media"><div class="main"><img src="${productImage(p)}" onerror="${UI.imgFallback(p)}" alt="${escapeHtml(p.name)}"></div></div>
       <div>
@@ -391,7 +400,7 @@ Pages.product = async function (id) {
           <div class="field"><label>Nota</label><select id="rvRating" class="select"><option value="5">★★★★★ Excelente</option><option value="4">★★★★ Bom</option><option value="3">★★★ Regular</option><option value="2">★★ Ruim</option><option value="1">★ Péssimo</option></select></div>
           <div class="field"><label>Comentário</label><textarea id="rvComment" placeholder="Conte como foi sua experiência"></textarea></div>
           <button class="btn btn-primary" id="rvSubmit">Enviar avaliação</button>
-        </div>` : `<p class="muted" style="padding-top:14px"><a href="#/entrar" style="color:var(--green-700);font-weight:600">Entre na sua conta</a> para avaliar.</p>`}
+        </div>` : `<p class="muted" style="padding-top:14px"><a href="/entrar" style="color:var(--green-700);font-weight:600">Entre na sua conta</a> para avaliar.</p>`}
       </div>
     </section>
 
@@ -423,11 +432,11 @@ const Flow = { coupon: '', payment: 'card', cep: '', cpf: '' };
 
 /* ---------- CART ---------- */
 Pages.cart = async function () {
-  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('#/carrinho'));
+  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('/carrinho'));
   loading();
   const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon }));
   if (!data.items.length) {
-    return mount(`<div class="container"><div class="empty" style="margin:50px 0"><div class="ic">${icon('cart', 32)}</div><h2>Seu carrinho está vazio</h2><p class="muted">Que tal explorar nossos insumos sustentáveis?</p><a href="#/produtos" class="btn btn-primary btn-lg" style="margin-top:16px">Ver produtos</a></div></div>`);
+    return mount(`<div class="container"><div class="empty" style="margin:50px 0"><div class="ic">${icon('cart', 32)}</div><h2>Seu carrinho está vazio</h2><p class="muted">Que tal explorar nossos insumos sustentáveis?</p><a href="/produtos" class="btn btn-primary btn-lg" style="margin-top:16px">Ver produtos</a></div></div>`);
   }
   mount(`<div class="container">
     <h1 style="margin:24px 0 4px;font-size:27px">Seu carrinho</h1>
@@ -442,9 +451,9 @@ Pages.cart = async function () {
 };
 function cartLine(it) {
   return `<div class="cart-line" data-line="${it.product_id}">
-    <a href="#/produto/${it.product_id}" class="ci-thumb"><img src="${productImage(it)}" onerror="${UI.imgFallback(it)}"></a>
+    <a href="/produto/${it.product_id}" class="ci-thumb"><img src="${productImage(it)}" onerror="${UI.imgFallback(it)}"></a>
     <div>
-      <a href="#/produto/${it.product_id}" style="font-weight:600;font-family:var(--display)">${escapeHtml(it.name)}</a>
+      <a href="/produto/${it.product_id}" style="font-weight:600;font-family:var(--display)">${escapeHtml(it.name)}</a>
       <div class="muted" style="font-size:13px;margin:3px 0 8px">${money(it.price)} ${it.unit !== 'un' ? '/ ' + escapeHtml(it.unit) : ''}</div>
       <div class="qty"><button data-cq="-1">−</button><input value="${it.quantity}" data-qval readonly><button data-cq="1">+</button></div>
     </div>
@@ -486,7 +495,7 @@ function summaryBox(t, mode) {
     </div>
     ${t.coupon ? `<div class="badge-soft" style="margin-bottom:12px">${icon('check', 12)} ${escapeHtml(t.coupon.description || t.coupon.code)}</div>` : ''}
     ${mode === 'carrinho'
-      ? `<a href="#/checkout" class="btn btn-primary btn-block btn-lg">Finalizar compra ${icon('arrow', 17)}</a>`
+      ? `<a href="/checkout" class="btn btn-primary btn-block btn-lg">Finalizar compra ${icon('arrow', 17)}</a>`
       : `<button class="btn btn-primary btn-block btn-lg" id="placeOrder">Confirmar pedido ${icon('check', 17)}</button>`}
     <p class="muted center" style="font-size:12px;margin-top:12px">${icon('shield', 12)} Compra protegida · Cartão · Pix · Neutrotan (NTR)</p>
   </div>`;
@@ -507,14 +516,14 @@ function wireSummary(mode) {
 
 /* ---------- CHECKOUT ---------- */
 Pages.checkout = async function () {
-  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('#/checkout'));
+  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('/checkout'));
   loading();
   const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon, payment: Flow.payment, cep: Flow.cep, cpf: Flow.cpf }));
   if (!data.items.length) return go('/carrinho');
   await Store.refreshUser();
 
   mount(`<div class="container">
-    <div class="breadcrumb"><a href="#/carrinho">Carrinho</a> ${icon('arrow', 13)} <span>Checkout</span></div>
+    <div class="breadcrumb"><a href="/carrinho">Carrinho</a> ${icon('arrow', 13)} <span>Checkout</span></div>
     <div class="checkout">
       <div>
         <div class="panel">
@@ -599,7 +608,7 @@ function setPayment(method) {
     panel.innerHTML = `<div class="mbv-pay">
       <div style="display:flex;justify-content:space-between;align-items:center"><span>Seu saldo</span><span class="bal">${mbv(Store.balance)}</span></div>
       <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:14px;color:#cfe9d6"><span>Total em NTR</span><b id="mbvTotal">${lastTotals ? mbv(lastTotals.mbvAmount) : '—'}</b></div>
-      ${!enough ? `<div style="background:rgba(255,255,255,.15);border-radius:10px;padding:10px;margin-top:12px;font-size:13px">Saldo insuficiente. <a href="#/carteira" style="color:var(--lime);font-weight:700">Recarregar carteira →</a></div>` : `<div style="margin-top:10px;font-size:13px;color:#cfe9d6">${icon('check', 13)} Você ganha 5% de desconto pagando com Neutrotan (NTR).</div>`}
+      ${!enough ? `<div style="background:rgba(255,255,255,.15);border-radius:10px;padding:10px;margin-top:12px;font-size:13px">Saldo insuficiente. <a href="/carteira" style="color:var(--lime);font-weight:700">Recarregar carteira →</a></div>` : `<div style="margin-top:10px;font-size:13px;color:#cfe9d6">${icon('check', 13)} Você ganha 5% de desconto pagando com Neutrotan (NTR).</div>`}
     </div>`;
   }
   refreshCheckoutSummary();
@@ -678,8 +687,8 @@ Pages.orderDetail = async function (id) {
     </div>
 
     <div style="display:flex;gap:12px;justify-content:center;margin-top:8px">
-      <a href="#/pedidos" class="btn btn-ghost">Meus pedidos</a>
-      <a href="#/produtos" class="btn btn-primary">Continuar comprando</a>
+      <a href="/pedidos" class="btn btn-ghost">Meus pedidos</a>
+      <a href="/produtos" class="btn btn-primary">Continuar comprando</a>
     </div>
   </div>`);
 
@@ -786,13 +795,13 @@ function qrArt(seed) {
 
 /* ---------- ORDERS ---------- */
 Pages.orders = async function () {
-  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('#/pedidos'));
+  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('/pedidos'));
   loading();
   const { orders } = await API.get('/orders');
   mount(`<div class="container">
     <h1 style="margin:24px 0 18px;font-size:27px">Meus pedidos</h1>
-    ${!orders.length ? `<div class="empty"><div class="ic">${icon('box', 30)}</div><h3>Você ainda não fez pedidos</h3><a href="#/produtos" class="btn btn-primary" style="margin-top:14px">Explorar produtos</a></div>`
-      : orders.map(o => `<a href="#/pedido/${o.id}" class="panel" style="display:flex;align-items:center;gap:16px;text-decoration:none">
+    ${!orders.length ? `<div class="empty"><div class="ic">${icon('box', 30)}</div><h3>Você ainda não fez pedidos</h3><a href="/produtos" class="btn btn-primary" style="margin-top:14px">Explorar produtos</a></div>`
+      : orders.map(o => `<a href="/pedido/${o.id}" class="panel" style="display:flex;align-items:center;gap:16px;text-decoration:none">
           <div style="display:flex;margin-right:4px">${o.items.slice(0, 3).map(it => `<img src="${productImage(it)}" onerror="${UI.imgFallback(it)}" style="width:48px;height:48px;border-radius:10px;object-fit:cover;border:2px solid #fff;margin-left:-10px">`).join('')}</div>
           <div style="flex:1"><b style="font-family:var(--display)">${escapeHtml(o.code)}</b><div class="muted" style="font-size:13px">${new Date(o.created_at + 'Z').toLocaleDateString('pt-BR')} · ${o.items.length} item(ns)</div></div>
           <div style="text-align:right"><b>${money(o.total)}</b><div style="margin-top:6px">${statusPill(o.status)}</div></div>
@@ -817,17 +826,17 @@ Pages.account = async function () {
           <div style="margin-top:14px"><span class="muted" style="font-size:13px">Tipo de conta</span><br><span class="chip">${u.role === 'admin' ? 'Administrador' : 'Cliente'}</span></div>
         </div>
         <div class="panel">
-          <div class="panel-head"><h3 style="margin:0">${icon('box', 18)} Últimos pedidos</h3><a href="#/pedidos" class="btn btn-ghost btn-sm">Ver todos</a></div>
-          ${orders.slice(0, 4).map(o => `<a href="#/pedido/${o.id}" style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line)"><span><b>${escapeHtml(o.code)}</b> <span class="muted">· ${new Date(o.created_at + 'Z').toLocaleDateString('pt-BR')}</span></span><span>${money(o.total)} ${statusPill(o.status)}</span></a>`).join('') || '<p class="muted">Nenhum pedido ainda.</p>'}
+          <div class="panel-head"><h3 style="margin:0">${icon('box', 18)} Últimos pedidos</h3><a href="/pedidos" class="btn btn-ghost btn-sm">Ver todos</a></div>
+          ${orders.slice(0, 4).map(o => `<a href="/pedido/${o.id}" style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line)"><span><b>${escapeHtml(o.code)}</b> <span class="muted">· ${new Date(o.created_at + 'Z').toLocaleDateString('pt-BR')}</span></span><span>${money(o.total)} ${statusPill(o.status)}</span></a>`).join('') || '<p class="muted">Nenhum pedido ainda.</p>'}
         </div>
       </div>
       <div>
         <div class="wallet-hero" style="padding:22px">
           <span style="font-size:13px;color:#cfe9d6">Carteira Neutrotan (NTR)</span>
           <div class="bal" style="font-size:34px">${mbv(Store.balance)}</div>
-          <a href="#/carteira" class="btn" style="background:var(--lime);color:#15391f;margin-top:14px">Abrir carteira</a>
+          <a href="/carteira" class="btn" style="background:var(--lime);color:#15391f;margin-top:14px">Abrir carteira</a>
         </div>
-        ${Store.isAdmin() ? `<a href="#/admin" class="btn btn-dark btn-block" style="margin-top:14px">${icon('grid', 17)} Painel administrativo</a>` : ''}
+        ${Store.isAdmin() ? `<a href="/admin" class="btn btn-dark btn-block" style="margin-top:14px">${icon('grid', 17)} Painel administrativo</a>` : ''}
         <button class="btn btn-ghost btn-block" id="acctLogout" style="margin-top:10px;color:var(--danger)">${icon('logout', 17)} Sair</button>
       </div>
     </div>
@@ -839,7 +848,7 @@ Pages.account = async function () {
 
 /* ---------- WALLET ---------- */
 Pages.wallet = async function () {
-  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('#/carteira'));
+  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('/carteira'));
   loading();
   const w = await API.get('/wallet');
   mount(`<div class="container" style="max-width:920px">
@@ -895,21 +904,21 @@ function txRow(t) {
 
 /* ---------- FAVORITES ---------- */
 Pages.favorites = async function () {
-  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('#/favoritos'));
+  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('/favoritos'));
   loading();
   const { items } = await API.get('/cart/favorites/list');
   mount(`<div class="container">
     <h1 style="margin:24px 0 18px;font-size:27px">Favoritos</h1>
-    ${items.length ? `<div class="product-grid">${items.map(productCard).join('')}</div>` : `<div class="empty"><div class="ic">${iconFill('heart', 28)}</div><h3>Nenhum favorito ainda</h3><p class="muted">Toque no coração dos produtos que você gosta.</p><a href="#/produtos" class="btn btn-primary" style="margin-top:14px">Explorar</a></div>`}
+    ${items.length ? `<div class="product-grid">${items.map(productCard).join('')}</div>` : `<div class="empty"><div class="ic">${iconFill('heart', 28)}</div><h3>Nenhum favorito ainda</h3><p class="muted">Toque no coração dos produtos que você gosta.</p><a href="/produtos" class="btn btn-primary" style="margin-top:14px">Explorar</a></div>`}
   </div>`);
 };
 
 /* ---------- AUTH ---------- */
 Pages.auth = function (query) {
   const tab = query.tab === 'register' ? 'register' : 'login';
-  const next = query.next || '#/';
+  const next = query.next || '/';
   mount(`<div class="container"><div class="auth-wrap">
-    <a href="#/" class="logo" style="justify-content:center;margin-bottom:6px"><img class="mark" src="https://movimentobrasilverde.com/wp-content/uploads/2026/04/cropped-Icone-MBV-270x270.png" alt="MBV — Movimento Brasil Verde" width="40" height="40" onerror="this.onerror=null;this.src='/img/logo.svg'"><span>MBV</span></a>
+    <a href="/" class="logo" style="justify-content:center;margin-bottom:6px"><img class="mark" src="https://movimentobrasilverde.com/wp-content/uploads/2026/04/cropped-Icone-MBV-270x270.png" alt="MBV — Movimento Brasil Verde" width="40" height="40" onerror="this.onerror=null;this.src='/img/logo.svg'"><span>MBV</span></a>
     <div class="auth-tabs"><button data-tab="login" class="${tab === 'login' ? 'active' : ''}">Entrar</button><button data-tab="register" class="${tab === 'register' ? 'active' : ''}">Criar conta</button></div>
     <div id="authForm"></div>
   </div></div>`);
@@ -921,7 +930,7 @@ Pages.auth = function (query) {
         <div class="field"><label>E-mail</label><input id="l_email" type="email" placeholder="voce@email.com"></div>
         <div class="field"><label>Senha</label><input id="l_pass" type="password" placeholder="••••••"></div>
         <button class="btn btn-primary btn-block btn-lg" id="loginBtn">Entrar</button>
-        <p style="text-align:center;margin-top:12px"><a href="#/recuperar" style="color:var(--green-700);font-weight:600;font-size:13.5px">Esqueci minha senha</a></p>
+        <p style="text-align:center;margin-top:12px"><a href="/recuperar" style="color:var(--green-700);font-weight:600;font-size:13.5px">Esqueci minha senha</a></p>
         <div class="demo-box"><b>Contas de demonstração:</b><br>Admin: <b>admin@mbv.com</b> / admin123<br>Cliente: <b>cliente@mbv.com</b> / cliente123</div>`;
       box.querySelector('#loginBtn').addEventListener('click', async () => {
         try {
@@ -957,7 +966,7 @@ Pages.forgot = function () {
     <h1>Recuperar senha</h1><p class="muted" style="margin:0 0 18px">Informe seu e-mail e enviaremos um link para redefinir a senha.</p>
     <div class="field"><label>E-mail</label><input id="fg_email" type="email" placeholder="voce@email.com"></div>
     <button class="btn btn-primary btn-block btn-lg" id="fgBtn">Enviar link</button>
-    <p style="text-align:center;margin-top:14px"><a href="#/entrar" style="color:var(--green-700);font-weight:600">Voltar ao login</a></p>
+    <p style="text-align:center;margin-top:14px"><a href="/entrar" style="color:var(--green-700);font-weight:600">Voltar ao login</a></p>
   </div></div>`);
   app.querySelector('#fgBtn').addEventListener('click', async () => {
     try { await API.post('/auth/forgot', { email: app.querySelector('#fg_email').value.trim() }); toast('Verifique seu e-mail', 'Se houver uma conta, enviamos o link de redefinição.', 'ok'); }
@@ -980,16 +989,16 @@ Pages.verify = function (query) {
   loading();
   API.post('/auth/verify', { token: query.token || '' }).then(async () => {
     await Store.refreshUser(); renderHeader();
-    mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic" style="color:var(--green-700)">${icon('check', 34)}</div><h2>E-mail confirmado! 🌱</h2><p class="muted">Sua conta está ativada.</p><a href="#/" class="btn btn-primary" style="margin-top:14px">Ir à loja</a></div></div>`);
+    mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic" style="color:var(--green-700)">${icon('check', 34)}</div><h2>E-mail confirmado! 🌱</h2><p class="muted">Sua conta está ativada.</p><a href="/" class="btn btn-primary" style="margin-top:14px">Ir à loja</a></div></div>`);
   }).catch(e => {
-    mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('search', 30)}</div><h2>Não foi possível confirmar</h2><p class="muted">${escapeHtml(e.message)}</p><a href="#/conta" class="btn btn-primary" style="margin-top:14px">Minha conta</a></div></div>`);
+    mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('search', 30)}</div><h2>Não foi possível confirmar</h2><p class="muted">${escapeHtml(e.message)}</p><a href="/conta" class="btn btn-primary" style="margin-top:14px">Minha conta</a></div></div>`);
   });
 };
 
 /* ======================= ADMIN ======================= */
 Pages.admin = function (parts, query) {
-  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('#/admin'));
-  if (!Store.isAdmin()) return mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('shield', 30)}</div><h2>Acesso restrito</h2><p class="muted">Esta área é exclusiva para administradores.</p><a href="#/" class="btn btn-primary" style="margin-top:14px">Voltar à loja</a></div></div>`);
+  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('/admin'));
+  if (!Store.isAdmin()) return mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('shield', 30)}</div><h2>Acesso restrito</h2><p class="muted">Esta área é exclusiva para administradores.</p><a href="/" class="btn btn-primary" style="margin-top:14px">Voltar à loja</a></div></div>`);
   const sub = parts[0] || 'dashboard';
   if (sub === 'produtos' && parts[1] === 'novo') return Admin.productForm(null);
   if (sub === 'produtos' && parts[1]) return Admin.productForm(parts[1]);
@@ -1001,14 +1010,14 @@ Pages.admin = function (parts, query) {
 };
 
 function adminShell(active, content) {
-  const nav = [['dashboard', 'Painel', 'chart', '#/admin'], ['produtos', 'Produtos', 'box', '#/admin/produtos'],
-    ['pedidos', 'Pedidos', 'truck', '#/admin/pedidos'], ['cupons', 'Cupons', 'tag', '#/admin/cupons'], ['usuarios', 'Clientes', 'users', '#/admin/usuarios']];
+  const nav = [['dashboard', 'Painel', 'chart', '/admin'], ['produtos', 'Produtos', 'box', '/admin/produtos'],
+    ['pedidos', 'Pedidos', 'truck', '/admin/pedidos'], ['cupons', 'Cupons', 'tag', '/admin/cupons'], ['usuarios', 'Clientes', 'users', '/admin/usuarios']];
   return `<div class="container"><div class="admin-wrap">
     <aside class="admin-nav">
       <div style="padding:8px 12px 12px;font-weight:800;font-family:var(--display);display:flex;align-items:center;gap:8px">${icon('grid', 18)} Admin MBV</div>
       ${nav.map(([k, l, ic, href]) => `<a href="${href}" class="${active === k ? 'active' : ''}">${icon(ic, 17)} ${l}</a>`).join('')}
       <div class="sep" style="height:1px;background:var(--line);margin:8px 6px"></div>
-      <a href="#/">${icon('logout', 17)} Ver loja</a>
+      <a href="/">${icon('logout', 17)} Ver loja</a>
     </aside>
     <div>${content}</div>
   </div></div>`;
@@ -1035,9 +1044,9 @@ Admin.dashboard = async function () {
             ${s.salesByDay.length ? s.salesByDay.map(d => `<div style="flex:1;text-align:center"><div title="${money(d.total)}" style="height:${Math.round(d.total / maxDay * 130)}px;min-height:4px;background:linear-gradient(180deg,var(--green-500),var(--green-700));border-radius:7px 7px 3px 3px"></div><span style="font-size:10.5px;color:var(--muted)">${d.day.slice(8, 10)}/${d.day.slice(5, 7)}</span></div>`).join('') : '<p class="muted">Sem vendas no período.</p>'}
           </div>
         </div>
-        <div class="panel"><div class="panel-head"><h3 style="margin:0">Pedidos recentes</h3><a href="#/admin/pedidos" class="btn btn-ghost btn-sm">Ver todos</a></div>
+        <div class="panel"><div class="panel-head"><h3 style="margin:0">Pedidos recentes</h3><a href="/admin/pedidos" class="btn btn-ghost btn-sm">Ver todos</a></div>
           <div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Total</th><th>Pgto</th><th>Status</th></tr></thead><tbody>
-            ${s.recentOrders.map(o => `<tr><td><a href="#/pedido/${o.id}"><b>${escapeHtml(o.code)}</b></a></td><td>${escapeHtml(o.customer_name)}</td><td>${money(o.total)}</td><td>${payIcon(o.payment_method)} ${statusPill(o.payment_status)}</td><td>${statusPill(o.status)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Nenhum pedido.</td></tr>'}
+            ${s.recentOrders.map(o => `<tr><td><a href="/pedido/${o.id}"><b>${escapeHtml(o.code)}</b></a></td><td>${escapeHtml(o.customer_name)}</td><td>${money(o.total)}</td><td>${payIcon(o.payment_method)} ${statusPill(o.payment_status)}</td><td>${statusPill(o.status)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Nenhum pedido.</td></tr>'}
           </tbody></table></div>
         </div>
       </div>
@@ -1057,14 +1066,14 @@ Admin.products = async function () {
   loading();
   const { items } = await API.get('/products?limit=60&sort=newest');
   mount(adminShell('produtos', `
-    <div class="panel-head"><h1>Produtos</h1><a href="#/admin/produtos/novo" class="btn btn-primary">${icon('plus', 17)} Novo produto</a></div>
+    <div class="panel-head"><h1>Produtos</h1><a href="/admin/produtos/novo" class="btn btn-primary">${icon('plus', 17)} Novo produto</a></div>
     <div class="table-wrap"><table><thead><tr><th>Produto</th><th>Categoria</th><th>Preço</th><th>Estoque</th><th>Status</th><th></th></tr></thead><tbody>
       ${items.map(p => `<tr>
         <td><div class="mini-prod"><img src="${productImage(p)}" onerror="${UI.imgFallback(p)}"><div><b style="font-size:13.5px">${escapeHtml(p.name)}</b>${p.featured ? ' <span class="chip" style="padding:2px 7px;font-size:10px">Destaque</span>' : ''}<div class="muted" style="font-size:12px">${escapeHtml(p.pack_size || '')}</div></div></div></td>
         <td>${escapeHtml(p.category_name || '—')}</td><td><b>${money(p.price)}</b></td>
         <td>${p.stock <= 5 ? `<span style="color:var(--danger);font-weight:700">${p.stock}</span>` : p.stock} ${escapeHtml(p.unit)}</td>
         <td>${p.active ? '<span class="pill pill-paid">Ativo</span>' : '<span class="pill pill-cancelled">Inativo</span>'}</td>
-        <td style="white-space:nowrap"><a href="#/admin/produtos/${p.id}" class="btn btn-ghost btn-sm">${icon('edit', 14)}</a> <button class="btn btn-ghost btn-sm" data-del="${p.id}" style="color:var(--danger)">${icon('trash', 14)}</button></td>
+        <td style="white-space:nowrap"><a href="/admin/produtos/${p.id}" class="btn btn-ghost btn-sm">${icon('edit', 14)}</a> <button class="btn btn-ghost btn-sm" data-del="${p.id}" style="color:var(--danger)">${icon('trash', 14)}</button></td>
       </tr>`).join('')}
     </tbody></table></div>`));
   app.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
@@ -1078,7 +1087,7 @@ Admin.productForm = async function (id) {
   let p = { name: '', description: '', price: '', compare_at_price: '', category_id: Store.categories[0] && Store.categories[0].id, stock: 0, unit: 'un', pack_size: '', image: '', badges: [], co2: 0, featured: false };
   if (id) { const r = await API.get('/products/' + id); p = r.product; }
   mount(adminShell('produtos', `
-    <div class="breadcrumb"><a href="#/admin/produtos">Produtos</a> ${icon('arrow', 13)} <span>${id ? 'Editar' : 'Novo produto'}</span></div>
+    <div class="breadcrumb"><a href="/admin/produtos">Produtos</a> ${icon('arrow', 13)} <span>${id ? 'Editar' : 'Novo produto'}</span></div>
     <div class="panel" style="max-width:760px">
       <h1 style="font-size:22px;margin-bottom:18px">${id ? 'Editar produto' : 'Novo produto'}</h1>
       <div class="checkout" style="grid-template-columns:1fr 200px;gap:20px">
@@ -1108,7 +1117,7 @@ Admin.productForm = async function (id) {
           <div class="field" style="margin-top:10px"><label>ou URL</label><input id="p_image" value="${escapeHtml(p.image || '')}" placeholder="https://..."></div>
         </div>
       </div>
-      <div style="display:flex;gap:10px;margin-top:14px"><button class="btn btn-primary btn-lg" id="saveProd">${icon('check', 17)} Salvar</button><a href="#/admin/produtos" class="btn btn-ghost btn-lg">Cancelar</a></div>
+      <div style="display:flex;gap:10px;margin-top:14px"><button class="btn btn-primary btn-lg" id="saveProd">${icon('check', 17)} Salvar</button><a href="/admin/produtos" class="btn btn-ghost btn-lg">Cancelar</a></div>
     </div>`));
 
   const fileInput = app.querySelector('#p_file');
@@ -1144,7 +1153,7 @@ Admin.orders = async function () {
     <div class="panel-head"><h1>Pedidos</h1><span class="muted">${orders.length} no total</span></div>
     <div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th>Total</th><th>Pgto</th><th>Status</th></tr></thead><tbody>
       ${orders.map(o => `<tr>
-        <td><a href="#/pedido/${o.id}"><b>${escapeHtml(o.code)}</b></a></td>
+        <td><a href="/pedido/${o.id}"><b>${escapeHtml(o.code)}</b></a></td>
         <td>${escapeHtml(o.customer_name || '')}<div class="muted" style="font-size:12px">${escapeHtml(o.customer_email || '')}</div></td>
         <td>${new Date(o.created_at + 'Z').toLocaleDateString('pt-BR')}</td>
         <td><b>${money(o.total)}</b></td>
@@ -1227,7 +1236,7 @@ function cookieBanner() {
   if (localStorage.getItem('mbv_cookie_ok')) return;
   const el = document.createElement('div');
   el.className = 'cookie-bar';
-  el.innerHTML = `<span>🍪 Usamos cookies para melhorar sua experiência. Ao continuar, você concorda com nossa <a href="#/privacidade">Política de Privacidade</a>.</span><button class="btn btn-primary btn-sm" id="ckok">Aceitar</button>`;
+  el.innerHTML = `<span>🍪 Usamos cookies para melhorar sua experiência. Ao continuar, você concorda com nossa <a href="/privacidade">Política de Privacidade</a>.</span><button class="btn btn-primary btn-sm" id="ckok">Aceitar</button>`;
   document.body.appendChild(el);
   el.querySelector('#ckok').addEventListener('click', () => { localStorage.setItem('mbv_cookie_ok', '1'); el.remove(); });
 }
@@ -1251,11 +1260,12 @@ function setupErrorReporting() {
 
 (async function boot() {
   setupErrorReporting();
+  if (location.hash.startsWith('#/')) history.replaceState({}, '', location.hash.slice(1)); // migra links antigos #/ -> /
   await Store.init();
   renderHeader();
   renderFooter();
   if (Store.chain && Store.chain.gaId) injectGA(Store.chain.gaId);
-  window.addEventListener('hashchange', () => { render(); if (window.gtag) gtag('event', 'page_view', { page_location: location.href }); });
+  window.addEventListener('popstate', render);
   render();
   cookieBanner();
 })();

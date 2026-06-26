@@ -3,30 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MBV — Marketplace do Agronegócio Sustentável | Movimento Brasil Verde</title>
-  <meta name="description" content="Marketplace de insumos sustentáveis do Movimento Brasil Verde: fertilizantes, bioinsumos (COT/PVE), sementes e energia limpa. Pague com Cartão, Pix ou o token Neutrotan (NTR). Regenerar para produzir." />
+  <title>{{TITLE}}</title>
+  <meta name="description" content="{{DESCRIPTION}}" />
   <meta name="keywords" content="marketplace sustentável, fertilizantes, bioinsumos, COT/PVE, agronegócio regenerativo, reflorestamento, Neutrotan, NTR, MBV, Movimento Brasil Verde, ESG, insumos agrícolas" />
   <meta name="author" content="Movimento Brasil Verde" />
-  <meta name="robots" content="index, follow" />
+  <meta name="robots" content="{{ROBOTS}}" />
   <meta name="theme-color" content="#0f3d2e" />
-  <link rel="canonical" href="https://mbv-marketplace.onrender.com/" />
+  <link rel="canonical" href="{{CANONICAL}}" />
   <!-- Open Graph (WhatsApp, Facebook, LinkedIn) -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="MBV — Movimento Brasil Verde" />
-  <meta property="og:title" content="MBV — Marketplace do Agronegócio Sustentável" />
-  <meta property="og:description" content="Insumos sustentáveis (COT/PVE), fertilizantes e energia limpa. Pague com Cartão, Pix ou o token Neutrotan (NTR). Regenerar para produzir." />
-  <meta property="og:url" content="https://mbv-marketplace.onrender.com/" />
-  <meta property="og:image" content="https://mbv-marketplace.onrender.com/img/og.png" />
+  <meta property="og:title" content="{{OG_TITLE}}" />
+  <meta property="og:description" content="{{OG_DESC}}" />
+  <meta property="og:url" content="{{CANONICAL}}" />
+  <meta property="og:image" content="{{OG_IMAGE}}" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:locale" content="pt_BR" />
   <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="MBV — Marketplace do Agronegócio Sustentável" />
-  <meta name="twitter:description" content="Insumos sustentáveis e pagamento com Cartão, Pix ou o token Neutrotan (NTR)." />
-  <meta name="twitter:image" content="https://mbv-marketplace.onrender.com/img/og.png" />
-  <!-- Dados estruturados (Schema.org) -->
+  <meta name="twitter:title" content="{{OG_TITLE}}" />
+  <meta name="twitter:description" content="{{OG_DESC}}" />
+  <meta name="twitter:image" content="{{OG_IMAGE}}" />
+  <!-- Dados estruturados do site (Schema.org) -->
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"OnlineStore","name":"MBV — Movimento Brasil Verde","url":"https://mbv-marketplace.onrender.com/","logo":"https://mbv-marketplace.onrender.com/img/logo.svg","image":"https://mbv-marketplace.onrender.com/img/og.png","description":"Marketplace de insumos sustentáveis do Movimento Brasil Verde. Pague com Cartão, Pix ou o token Neutrotan (NTR).","slogan":"Regenerar para produzir","sameAs":["https://www.instagram.com/mbv.oficial/","https://www.facebook.com/movimentobrasilverde/","https://www.linkedin.com/company/mbvoficial/","https://www.youtube.com/@MovimentoBrasilVerde"]}</script>
+  {{JSONLD}}
   <link rel="icon" type="image/png" href="https://movimentobrasilverde.com/wp-content/uploads/2026/04/cropped-Icone-MBV-270x270.png" />
   <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -36,7 +37,7 @@
 </head>
 <body>
   <header id="site-header"></header>
-  <main id="app"><div class="container"><div class="loader">Carregando…</div></div></main>
+  <main id="app">{{SSR}}</main>
   <footer id="site-footer"></footer>
 
   <div id="toast-stack" class="toast-stack"></div>

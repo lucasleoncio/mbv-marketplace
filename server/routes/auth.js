@@ -76,7 +76,7 @@ router.post('/forgot', (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 3600 * 1000).toISOString();
     db.prepare("INSERT INTO auth_tokens (user_id, kind, token, expires_at) VALUES (?, 'reset', ?, ?)").run(user.id, token, expires);
-    email.sendPasswordReset(user, `${APP_URL}/#/redefinir?token=${token}`).catch(() => {});
+    email.sendPasswordReset(user, `${APP_URL}/redefinir?token=${token}`).catch(() => {});
   }
   res.json({ ok: true });
 });
@@ -99,7 +99,7 @@ function sendVerify(user) {
   const token = crypto.randomBytes(24).toString('hex');
   const expires = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
   db.prepare("INSERT INTO auth_tokens (user_id, kind, token, expires_at) VALUES (?, 'verify', ?, ?)").run(user.id, token, expires);
-  email.sendVerification(user, `${APP_URL}/#/verificar?token=${token}`).catch(() => {});
+  email.sendVerification(user, `${APP_URL}/verificar?token=${token}`).catch(() => {});
 }
 
 // POST /api/auth/verify { token }

@@ -48,7 +48,7 @@ async function sendOrderConfirmation(user, order) {
       <tr><td style="padding:8px 0;border-top:1px solid #e3e1d6"><b>Total</b></td><td style="padding:8px 0;border-top:1px solid #e3e1d6;text-align:right"><b>${money(order.total)}</b></td></tr>
     </table>
     <p>Entrega para: ${esc(order.ship_name)} — ${esc(order.ship_city)}/${esc(order.ship_state)}.</p>
-    <p style="margin-top:18px"><a href="${APP_URL}/#/pedido/${order.id}" style="background:#1f6e47;color:#fff;text-decoration:none;padding:11px 20px;border-radius:999px;font-weight:600">Ver meu pedido</a></p>`;
+    <p style="margin-top:18px"><a href="${APP_URL}/pedido/${order.id}" style="background:#1f6e47;color:#fff;text-decoration:none;padding:11px 20px;border-radius:999px;font-weight:600">Ver meu pedido</a></p>`;
   return send(user.email, `Pedido ${order.code} confirmado — MBV`, layout('Pedido confirmado!', body));
 }
 
