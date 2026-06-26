@@ -59,4 +59,11 @@ async function sendPasswordReset(user, link) {
   return send(user.email, 'Redefinir senha — MBV', layout('Redefinição de senha', body));
 }
 
-module.exports = { send, sendOrderConfirmation, sendPasswordReset };
+async function sendVerification(user, link) {
+  const body = `<p>Olá, ${esc((user.name || '').split(' ')[0])}! Confirme seu e-mail para ativar sua conta no MBV.</p>
+    <p style="margin:18px 0"><a href="${esc(link)}" style="background:#1f6e47;color:#fff;text-decoration:none;padding:11px 20px;border-radius:999px;font-weight:600">Confirmar e-mail</a></p>
+    <p style="color:#5d6f64;font-size:13px">Se não foi você, ignore este e-mail.</p>`;
+  return send(user.email, 'Confirme seu e-mail — MBV', layout('Bem-vindo ao MBV 🌱', body));
+}
+
+module.exports = { send, sendOrderConfirmation, sendPasswordReset, sendVerification };

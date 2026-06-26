@@ -42,6 +42,9 @@ services:
       #   value: "re_..."
       # - key: EMAIL_FROM
       #   value: "MBV <no-reply@movimentobrasilverde.com>"
+      # --- Google Analytics (opcional) ---
+      # - key: GA_ID
+      #   value: "G-XXXXXXXXXX"
 
     # ---------------------------------------------------------------
     # DADOS PERSISTENTES (opcional, requer plano pago)

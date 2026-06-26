@@ -38,6 +38,7 @@ async function render() {
     if (['sobre', 'contato', 'faq', 'privacidade', 'termos', 'trocas'].includes(r)) return Pages.page(r);
     if (r === 'recuperar') return Pages.forgot();
     if (r === 'redefinir') return Pages.reset(query);
+    if (r === 'verificar') return Pages.verify(query);
     if (r === 'admin') return Pages.admin(parts.slice(1), query);
     return Pages.notFound();
   } catch (e) { console.error(e); toast('Erro', e.message, 'err'); }
@@ -798,6 +799,7 @@ Pages.account = async function () {
   const { orders } = await API.get('/orders');
   mount(`<div class="container" style="max-width:920px">
     <h1 style="margin:24px 0 18px;font-size:27px">Minha conta</h1>
+    ${!u.email_verified ? `<div class="panel" style="border-color:#f0d9a6;background:#fdf7e8;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><span style="font-size:14px">✉️ Confirme seu e-mail para ativar todos os recursos da conta.</span><button class="btn btn-light btn-sm" id="resendVerify">Reenviar e-mail</button></div>` : ''}
     <div class="checkout" style="grid-template-columns:1fr 320px">
       <div>
         <div class="panel">
@@ -822,6 +824,8 @@ Pages.account = async function () {
     </div>
   </div>`);
   app.querySelector('#acctLogout').addEventListener('click', () => { Store.logout(); renderHeader(); go('/'); });
+  const rv = app.querySelector('#resendVerify');
+  if (rv) rv.addEventListener('click', async () => { try { await API.post('/auth/resend-verification'); toast('E-mail enviado!', 'Verifique sua caixa de entrada.', 'ok'); } catch (e) { toast('Ops', e.message, 'err'); } });
 };
 
 /* ---------- WALLET ---------- */
@@ -961,6 +965,15 @@ Pages.reset = function (query) {
   app.querySelector('#rsBtn').addEventListener('click', async () => {
     try { await API.post('/auth/reset', { token, password: app.querySelector('#rs_pass').value }); toast('Senha alterada!', 'Já pode entrar com a nova senha.', 'ok'); go('/entrar'); }
     catch (e) { toast('Ops', e.message, 'err'); }
+  });
+};
+Pages.verify = function (query) {
+  loading();
+  API.post('/auth/verify', { token: query.token || '' }).then(async () => {
+    await Store.refreshUser(); renderHeader();
+    mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic" style="color:var(--green-700)">${icon('check', 34)}</div><h2>E-mail confirmado! 🌱</h2><p class="muted">Sua conta está ativada.</p><a href="#/" class="btn btn-primary" style="margin-top:14px">Ir à loja</a></div></div>`);
+  }).catch(e => {
+    mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('search', 30)}</div><h2>Não foi possível confirmar</h2><p class="muted">${escapeHtml(e.message)}</p><a href="#/conta" class="btn btn-primary" style="margin-top:14px">Minha conta</a></div></div>`);
   });
 };
 
@@ -1198,11 +1211,30 @@ function cookieBanner() {
   el.querySelector('#ckok').addEventListener('click', () => { localStorage.setItem('mbv_cookie_ok', '1'); el.remove(); });
 }
 
+function injectGA(id) {
+  const s = document.createElement('script'); s.async = true; s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+  document.head.appendChild(s);
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function () { dataLayer.push(arguments); };
+  gtag('js', new Date()); gtag('config', id);
+}
+function setupErrorReporting() {
+  let last = 0;
+  const report = (payload) => {
+    const now = Date.now(); if (now - last < 3000) return; last = now;
+    try { fetch('/api/client-error', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, url: location.href }) }); } catch (_) {}
+  };
+  window.addEventListener('error', e => report({ type: 'error', message: e.message, source: e.filename, line: e.lineno }));
+  window.addEventListener('unhandledrejection', e => report({ type: 'unhandledrejection', message: String((e.reason && e.reason.message) || e.reason) }));
+}
+
 (async function boot() {
+  setupErrorReporting();
   await Store.init();
   renderHeader();
   renderFooter();
-  window.addEventListener('hashchange', render);
+  if (Store.chain && Store.chain.gaId) injectGA(Store.chain.gaId);
+  window.addEventListener('hashchange', () => { render(); if (window.gtag) gtag('event', 'page_view', { page_location: location.href }); });
   render();
   cookieBanner();
 })();

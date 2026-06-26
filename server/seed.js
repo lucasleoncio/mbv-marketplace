@@ -89,6 +89,7 @@ function seed() {
   // Bônus de boas-vindas + saldo para testar pagamento em MBV Coin
   wallet.move(cust.lastInsertRowid, 150, 'welcome', 'Bônus de boas-vindas ao MBV', 'welcome');
   wallet.move(cust.lastInsertRowid, 2000, 'topup', 'Recarga inicial de demonstração', 'demo');
+  db.prepare('UPDATE users SET email_verified = 1').run(); // contas de demonstração já verificadas
 
   console.log('  ✓ Seed concluído:', PRODUCTS.length, 'produtos,', CATEGORIES.length, 'categorias,', COUPONS.length, 'cupons.');
 }

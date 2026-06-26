@@ -159,7 +159,12 @@ O app roda em modo demonstração e **ativa as integrações sozinho** quando as
 **E-mails (Resend):**
 - `RESEND_API_KEY` = sua chave (`re_...`).
 - `EMAIL_FROM` = ex.: `MBV <no-reply@movimentobrasilverde.com>` (verifique o domínio no Resend).
-- Ativa os e-mails de **confirmação de pedido** e de **recuperação de senha**.
+- Ativa os e-mails de **confirmação de pedido**, **verificação de e-mail** e **recuperação de senha**.
+
+**Google Analytics (opcional):**
+- `GA_ID` = `G-XXXXXXXXXX` — ativa o GA4 (visitas e eventos de página). Sem ela, nada é coletado.
+
+**Nota fiscal (NF-e):** a emissão automática exige um **provedor fiscal** (ex.: Focus NFe, NFe.io, eNotas), o **certificado digital** da empresa e os dados fiscais dos produtos (NCM/CFOP/regime tributário). Dá para integrar quando você escolher o provedor e tiver o certificado — fale com seu contador para esses dados.
 
 ---
 

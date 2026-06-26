@@ -200,7 +200,8 @@ CREATE INDEX IF NOT EXISTS idx_tx_user ON transactions(user_id);
 // Migrações leves (colunas para pagamento on-chain) — ignora se já existirem.
 for (const stmt of [
   'ALTER TABLE orders ADD COLUMN tx_hash TEXT',
-  'ALTER TABLE orders ADD COLUMN chain_id INTEGER'
+  'ALTER TABLE orders ADD COLUMN chain_id INTEGER',
+  'ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0'
 ]) { try { db.exec(stmt); } catch (_) {} }
 
 module.exports = db;

@@ -13,7 +13,8 @@ const router = express.Router();
 function publicUser(u) {
   return {
     id: u.id, name: u.name, email: u.email, role: u.role,
-    mbv_balance: u.mbv_balance, wallet_address: u.wallet_address, phone: u.phone
+    mbv_balance: u.mbv_balance, wallet_address: u.wallet_address, phone: u.phone,
+    email_verified: !!u.email_verified
   };
 }
 
@@ -45,6 +46,7 @@ router.post('/register', (req, res) => {
   }
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
+  sendVerify(user); // envia e-mail de confirmação (não bloqueia o cadastro)
   res.status(201).json({ token: sign(user), user: publicUser(user) });
 });
 
@@ -89,6 +91,32 @@ router.post('/reset', (req, res) => {
     return res.status(400).json({ error: 'Link inválido ou expirado. Solicite um novo.' });
   db.prepare('UPDATE users SET password = ? WHERE id = ?').run(bcrypt.hashSync(password, 10), row.user_id);
   db.prepare('UPDATE auth_tokens SET used = 1 WHERE id = ?').run(row.id);
+  res.json({ ok: true });
+});
+
+// Cria token de verificação e envia o e-mail de confirmação.
+function sendVerify(user) {
+  const token = crypto.randomBytes(24).toString('hex');
+  const expires = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+  db.prepare("INSERT INTO auth_tokens (user_id, kind, token, expires_at) VALUES (?, 'verify', ?, ?)").run(user.id, token, expires);
+  email.sendVerification(user, `${APP_URL}/#/verificar?token=${token}`).catch(() => {});
+}
+
+// POST /api/auth/verify { token }
+router.post('/verify', (req, res) => {
+  const token = String(req.body.token || '').trim();
+  const row = db.prepare("SELECT * FROM auth_tokens WHERE token = ? AND kind = 'verify' AND used = 0").get(token);
+  if (!row || new Date(row.expires_at) < new Date()) return res.status(400).json({ error: 'Link inválido ou expirado.' });
+  db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(row.user_id);
+  db.prepare('UPDATE auth_tokens SET used = 1 WHERE id = ?').run(row.id);
+  res.json({ ok: true });
+});
+
+// POST /api/auth/resend-verification
+router.post('/resend-verification', requireAuth, (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  if (user.email_verified) return res.json({ ok: true, already: true });
+  sendVerify(user);
   res.json({ ok: true });
 });
 

@@ -27,7 +27,13 @@ app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'MBV Marketp
 app.get('/api/chain', (_req, res) => {
   const cfg = require('./lib/chain').publicConfig();
   cfg.mpEnabled = require('./config').MP.enabled;
+  cfg.gaId = require('./config').GA_ID;
   res.json(cfg);
+});
+// Recebe erros do frontend e os registra (aparecem no log do servidor/Render).
+app.post('/api/client-error', (req, res) => {
+  console.error('[client-error]', JSON.stringify(req.body || {}).slice(0, 600));
+  res.sendStatus(204);
 });
 
 // Frontend (SPA)

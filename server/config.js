@@ -36,6 +36,9 @@ module.exports = {
   // URL pública do app (usada em links de e-mail e retornos de pagamento)
   APP_URL: process.env.APP_URL || 'https://mbv-marketplace.onrender.com',
 
+  // Google Analytics (GA4). Defina GA_ID (ex.: G-XXXXXXX) para ativar.
+  GA_ID: process.env.GA_ID || '',
+
   // --- E-mail (Resend) — ativa automaticamente quando RESEND_API_KEY existir ---
   EMAIL: {
     resendKey: process.env.RESEND_API_KEY || '',
