@@ -1,6 +1,7 @@
 // Cálculo de totais do carrinho/checkout — centraliza cupom, frete e desconto cripto.
 const db = require('../db');
 const { SHIPPING, TOKEN } = require('../config');
+const { freightForCep } = require('./shipping');
 
 function round2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
 
@@ -19,8 +20,8 @@ function getCoupon(code) {
   return db.prepare('SELECT * FROM coupons WHERE code = ? AND active = 1').get(String(code).toUpperCase().trim()) || null;
 }
 
-// Calcula todos os valores. paymentMethod: 'card' | 'pix' | 'mbv'.
-function computeTotals(items, couponCode, paymentMethod) {
+// Calcula todos os valores. paymentMethod: 'card' | 'pix' | 'mbv'. cep: opcional (frete por região).
+function computeTotals(items, couponCode, paymentMethod, cep) {
   const subtotal = round2(items.reduce((s, it) => s + it.price * it.quantity, 0));
 
   let couponDiscount = 0;
@@ -44,7 +45,7 @@ function computeTotals(items, couponCode, paymentMethod) {
 
   const discount = round2(couponDiscount + cryptoDiscount);
   const afterDiscount = round2(subtotal - discount);
-  const shipping = items.length === 0 ? 0 : (afterDiscount >= SHIPPING.freeAbove ? 0 : SHIPPING.flat);
+  const shipping = items.length === 0 ? 0 : freightForCep(cep, afterDiscount);
   const total = round2(afterDiscount + shipping);
 
   // Equivalente em MBV e cashback (em MBV Coin)

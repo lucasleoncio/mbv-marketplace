@@ -27,8 +27,19 @@ module.exports = {
 
   // --- Frete ---
   SHIPPING: {
-    flat: 29.9, // frete padrão
-    freeAbove: 500 // frete grátis acima de R$ 500
+    flat: 29.9, // frete padrão (fallback quando não há CEP)
+    freeAbove: 500, // frete grátis acima de R$ 500
+    // Frete por região, pelo 1º dígito do CEP (ajustável). Origem aprox. Sul/Sudeste.
+    byRegion: { '0': 24.9, '1': 24.9, '8': 27.9, '9': 29.9, '2': 32.9, '3': 34.9, '4': 39.9, '5': 42.9, '6': 49.9, '7': 46.9 }
+  },
+
+  // URL pública do app (usada em links de e-mail e retornos de pagamento)
+  APP_URL: process.env.APP_URL || 'https://mbv-marketplace.onrender.com',
+
+  // --- E-mail (Resend) — ativa automaticamente quando RESEND_API_KEY existir ---
+  EMAIL: {
+    resendKey: process.env.RESEND_API_KEY || '',
+    from: process.env.EMAIL_FROM || 'MBV — Movimento Brasil Verde <onboarding@resend.dev>'
   },
 
   // --- Pagamento on-chain do NTR (rede Polygon) ---

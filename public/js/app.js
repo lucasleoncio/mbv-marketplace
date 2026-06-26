@@ -35,6 +35,7 @@ async function render() {
     if (r === 'carteira') return Pages.wallet();
     if (r === 'favoritos') return Pages.favorites();
     if (r === 'entrar') return Pages.auth(query);
+    if (['sobre', 'contato', 'faq', 'privacidade', 'termos', 'trocas'].includes(r)) return Pages.page(r);
     if (r === 'admin') return Pages.admin(parts.slice(1), query);
     return Pages.notFound();
   } catch (e) { console.error(e); toast('Erro', e.message, 'err'); }
@@ -119,6 +120,7 @@ function renderFooter() {
       </div>
       <div><h5>Categorias</h5>${Store.categories.map(c => `<a href="#/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('')}</div>
       <div><h5>Conta</h5><a href="#/conta">Minha conta</a><a href="#/pedidos">Meus pedidos</a><a href="#/carteira">Carteira Neutrotan (NTR)</a><a href="#/favoritos">Favoritos</a></div>
+      <div><h5>Institucional</h5><a href="#/sobre">Sobre</a><a href="#/contato">Contato</a><a href="#/faq">FAQ</a><a href="#/termos">Termos de uso</a><a href="#/privacidade">Privacidade</a><a href="#/trocas">Trocas e devoluções</a></div>
       <div><h5>Neutrotan (NTR)</h5><a href="#/carteira">Saldo & extrato</a><a href="#/checkout">Pagar com cripto</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">Utility token ERC-20 na rede Polygon.<br>Lastro real em cote · 1 NTR = R$ 9,36.</span></div>
     </div>
     <div class="footer-bottom"><span>© 2026 Grupo Movimento Brasil Verde · CNPJ 54.224.102/0001-10</span><span>Cartão · Pix · Neutrotan (NTR) 🌱</span></div>
@@ -150,6 +152,81 @@ document.addEventListener('click', e => {
 const Pages = {};
 
 Pages.notFound = () => mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('search', 30)}</div><h2>Página não encontrada</h2><p class="muted">O endereço acessado não existe.</p><a href="#/" class="btn btn-primary" style="margin-top:14px">Voltar à loja</a></div></div>`);
+
+/* ---------- PÁGINAS INSTITUCIONAIS / LEGAIS ---------- */
+const STATIC_PAGES = {
+  sobre: { crumb: 'Sobre', html: `<div class="prose">
+    <span class="eyebrow">Desde 1992</span>
+    <h1>Sobre o MBV</h1>
+    <p>O <b>Movimento Brasil Verde (MBV)</b> une, desde 1992, pesquisa científica e atuação no campo para regenerar ambientes e elevar resultados no agronegócio. Hoje, como empresa formalizada, entregamos reflorestamento biossustentável, saneamento e soluções ESG com transparência em blockchain.</p>
+    <h2>Ciência que gera resultado</h2>
+    <p>Nossos protocolos biotecnológicos <b>COT/PVE</b> aceleram o metabolismo das plantas, recuperam solos e ampliam a produtividade — com ganhos comprovados, como <b>+70% na soja</b> em áreas antes degradadas.</p>
+    <h2>Compromisso</h2>
+    <p>Somos signatários do <b>Pacto Global da ONU</b> e alinhados aos <b>ODS</b>. Cada projeto une lastro real e auditoria, conectando produtores, investidores e sociedade a um impacto mensurável.</p>
+    <p>Este marketplace é a vitrine dos nossos insumos sustentáveis, com pagamento por Cartão, Pix e pelo token <b>Neutrotan (NTR)</b>.</p>
+  </div>` },
+  contato: { crumb: 'Contato', html: `<div class="prose">
+    <h1>Fale com a gente</h1>
+    <p>Conte seu cenário (área degradada, conformidade ou produtividade) que indicamos o melhor caminho.</p>
+    <p><b>WhatsApp / Telefone:</b> +55 48 9174-1610<br><b>E-mail:</b> contato@movimentobrasilverde.com</p>
+    <p><b>São Paulo/SP:</b> Rua do Rocio, 288 – Conj. 121, Vila Olímpia<br><b>Palhoça/SC:</b> Av. Mario José Mateus, 220 – Galpão 1, Bela Vista</p>
+    <div class="panel" style="margin-top:18px">
+      <div class="field"><label>Seu nome</label><input id="ct_name"></div>
+      <div class="field"><label>Mensagem</label><textarea id="ct_msg" placeholder="Como podemos ajudar?"></textarea></div>
+      <button class="btn btn-primary" id="ct_send">Enviar pelo WhatsApp</button>
+    </div>
+  </div>` },
+  faq: { crumb: 'FAQ', html: `<div class="prose">
+    <h1>Perguntas frequentes</h1>
+    <h2>Como funciona o pagamento?</h2><p>Você pode pagar com Cartão, Pix ou com o token <b>Neutrotan (NTR)</b>, direto pela sua carteira (MetaMask) na rede Polygon.</p>
+    <h2>Qual o valor do frete?</h2><p>O frete é calculado pelo seu CEP no checkout. Compras acima de <b>R$ 500</b> têm frete grátis.</p>
+    <h2>O que é o token NTR?</h2><p>É o utility token do ecossistema MBV (ERC-20 na Polygon), com lastro real no "cote". Dá descontos e cashback nas compras.</p>
+    <h2>Posso trocar ou devolver?</h2><p>Sim — você tem até 7 dias após o recebimento. Veja a página de Trocas e Devoluções.</p>
+    <h2>É seguro?</h2><p>Sim. Pagamentos processados por parceiros e, no caso do NTR, confirmados on-chain. Não guardamos dados de cartão nem chaves de carteira.</p>
+  </div>` },
+  privacidade: { crumb: 'Privacidade', html: `<div class="prose">
+    <h1>Política de Privacidade</h1>
+    <p class="muted">Atualizado em junho de 2026 · Modelo inicial — recomendamos revisão por um advogado.</p>
+    <p>O Movimento Brasil Verde (CNPJ 54.224.102/0001-10) respeita a sua privacidade e cumpre a Lei Geral de Proteção de Dados (Lei 13.709/2018 — LGPD).</p>
+    <h2>Dados que coletamos</h2><p>Nome, e-mail, endereço de entrega e dados do pedido. Não armazenamos dados completos de cartão.</p>
+    <h2>Como usamos</h2><p>Para processar pedidos, entregar produtos, enviar comunicações sobre sua compra e cumprir obrigações legais.</p>
+    <h2>Compartilhamento</h2><p>Apenas com parceiros necessários (pagamento e entrega) e quando exigido por lei.</p>
+    <h2>Seus direitos</h2><p>Você pode acessar, corrigir ou excluir seus dados e revogar consentimento pelo e-mail contato@movimentobrasilverde.com.</p>
+    <h2>Cookies</h2><p>Usamos cookies para melhorar sua experiência. Você pode gerenciá-los no navegador.</p>
+  </div>` },
+  termos: { crumb: 'Termos', html: `<div class="prose">
+    <h1>Termos de Uso</h1>
+    <p class="muted">Modelo inicial — recomendamos revisão por um advogado.</p>
+    <p>Ao usar este marketplace, você concorda com estes termos.</p>
+    <h2>Uso da plataforma</h2><p>Você se compromete a fornecer informações verdadeiras e a usar a plataforma de forma lícita.</p>
+    <h2>Pedidos e pagamentos</h2><p>Preços e disponibilidade podem mudar. O pedido é confirmado após a aprovação do pagamento (Cartão, Pix ou NTR).</p>
+    <h2>Token Neutrotan (NTR)</h2><p>O NTR é um utility token de uso no ecossistema MBV. Não constitui oferta de valor mobiliário nem promessa de rentabilidade.</p>
+    <h2>Limitação de responsabilidade</h2><p>Empenhamo-nos pela disponibilidade e exatidão, mas não garantimos operação ininterrupta.</p>
+    <h2>Contato</h2><p>contato@movimentobrasilverde.com</p>
+  </div>` },
+  trocas: { crumb: 'Trocas e devoluções', html: `<div class="prose">
+    <h1>Trocas e Devoluções</h1>
+    <p class="muted">Modelo inicial — recomendamos revisão por um advogado.</p>
+    <h2>Direito de arrependimento</h2><p>Conforme o Código de Defesa do Consumidor (art. 49), você pode desistir da compra em até <b>7 dias corridos</b> após o recebimento.</p>
+    <h2>Como solicitar</h2><p>Envie um e-mail para contato@movimentobrasilverde.com com o número do pedido. O produto deve estar sem uso e na embalagem original.</p>
+    <h2>Reembolso</h2><p>Após o recebimento e a conferência, o reembolso é feito pelo mesmo meio de pagamento. Em pagamentos com NTR, o estorno é feito em NTR.</p>
+    <h2>Produtos com defeito</h2><p>Em caso de defeito, entre em contato em até 7 dias (não duráveis) ou 90 dias (duráveis).</p>
+  </div>` }
+};
+Pages.page = function (slug) {
+  const p = STATIC_PAGES[slug];
+  if (!p) return Pages.notFound();
+  mount(`<div class="container"><div class="breadcrumb"><a href="#/">Início</a> ${icon('arrow', 13)} <span>${escapeHtml(p.crumb)}</span></div>${p.html}</div>`);
+  if (slug === 'contato') {
+    const b = app.querySelector('#ct_send');
+    if (b) b.addEventListener('click', () => {
+      const nome = app.querySelector('#ct_name').value.trim();
+      const msg = app.querySelector('#ct_msg').value.trim();
+      const text = encodeURIComponent(`Olá! Sou ${nome || 'visitante do site'}. ${msg}`);
+      window.open('https://wa.me/554891741610?text=' + text, '_blank');
+    });
+  }
+};
 
 /* ---------- HOME ---------- */
 Pages.home = async function () {
@@ -339,7 +416,7 @@ function reviewRow(r) {
 }
 
 /* Estado que persiste entre carrinho e checkout */
-const Flow = { coupon: '', payment: 'card' };
+const Flow = { coupon: '', payment: 'card', cep: '' };
 
 /* ---------- CART ---------- */
 Pages.cart = async function () {
@@ -429,7 +506,7 @@ function wireSummary(mode) {
 Pages.checkout = async function () {
   if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('#/checkout'));
   loading();
-  const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon, payment: Flow.payment }));
+  const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon, payment: Flow.payment, cep: Flow.cep }));
   if (!data.items.length) return go('/carrinho');
   await Store.refreshUser();
 
@@ -469,6 +546,23 @@ Pages.checkout = async function () {
   app.querySelectorAll('[data-pay]').forEach(o => o.addEventListener('click', () => setPayment(o.dataset.pay)));
   wireSummary('checkout');
   app.querySelector('#placeOrder').addEventListener('click', placeOrder);
+  const cepEl = app.querySelector('#s_cep');
+  if (cepEl) cepEl.addEventListener('blur', async () => {
+    const cep = cepEl.value.replace(/\D/g, '');
+    Flow.cep = cep;
+    if (cep.length === 8) {
+      try {
+        const r = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
+        const dd = await r.json();
+        if (!dd.erro) {
+          if (dd.logradouro && !app.querySelector('#s_address').value) app.querySelector('#s_address').value = dd.logradouro + (dd.bairro ? ', ' + dd.bairro : '');
+          if (dd.localidade) app.querySelector('#s_city').value = dd.localidade;
+          if (dd.uf) app.querySelector('#s_state').value = dd.uf;
+        }
+      } catch (_) {}
+    }
+    refreshCheckoutSummary();
+  });
 };
 
 function setPayment(method) {
@@ -503,7 +597,7 @@ function setPayment(method) {
 let lastTotals = null;
 async function refreshCheckoutSummary() {
   try {
-    const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon, payment: Flow.payment }));
+    const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon, payment: Flow.payment, cep: Flow.cep }));
     lastTotals = data.totals;
     const wrap = app.querySelector('#summaryWrap');
     if (wrap) { wrap.innerHTML = summaryBox(data.totals, 'checkout'); wireSummary('checkout'); app.querySelector('#placeOrder').addEventListener('click', placeOrder); }
@@ -1042,12 +1136,22 @@ Admin.users = async function () {
 };
 
 /* ======================= BOOT ======================= */
+function cookieBanner() {
+  if (localStorage.getItem('mbv_cookie_ok')) return;
+  const el = document.createElement('div');
+  el.className = 'cookie-bar';
+  el.innerHTML = `<span>🍪 Usamos cookies para melhorar sua experiência. Ao continuar, você concorda com nossa <a href="#/privacidade">Política de Privacidade</a>.</span><button class="btn btn-primary btn-sm" id="ckok">Aceitar</button>`;
+  document.body.appendChild(el);
+  el.querySelector('#ckok').addEventListener('click', () => { localStorage.setItem('mbv_cookie_ok', '1'); el.remove(); });
+}
+
 (async function boot() {
   await Store.init();
   renderHeader();
   renderFooter();
   window.addEventListener('hashchange', render);
   render();
+  cookieBanner();
 })();
 
 

@@ -4,6 +4,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { getCartItems, computeTotals, round2 } = require('../lib/pricing');
 const wallet = require('../lib/wallet');
 const chain = require('../lib/chain');
+const email = require('../lib/email');
 const { TOKEN, CHAIN } = require('../config');
 
 const router = express.Router();
@@ -48,7 +49,7 @@ router.post('/', requireAuth, (req, res) => {
     if (!String(ship[f] || '').trim()) return res.status(400).json({ error: 'Preencha todos os campos de entrega.' });
   }
 
-  const totals = computeTotals(items, req.body.coupon_code, method);
+  const totals = computeTotals(items, req.body.coupon_code, method, ship.cep);
   if (totals.couponError) return res.status(400).json({ error: totals.couponError });
 
   // Validação por forma de pagamento
@@ -117,6 +118,7 @@ router.post('/', requireAuth, (req, res) => {
 
   try {
     const orderId = run();
+    if (paymentStatus === 'paid') email.sendOrderConfirmation(req.user, orderWithItems(orderId)).catch(() => {});
     res.status(201).json({ order: orderWithItems(orderId), token: TOKEN, onchain });
   } catch (e) {
     if (e.code === 'INSUFFICIENT_FUNDS') return res.status(400).json({ error: 'Saldo de NTR insuficiente.' });
@@ -132,6 +134,7 @@ router.post('/:id/confirm-pix', requireAuth, (req, res) => {
   if (order.payment_status === 'paid') return res.json({ order: orderWithItems(order.id) });
   db.prepare("UPDATE orders SET payment_status = 'paid' WHERE id = ?").run(order.id);
   payCashback(order);
+  email.sendOrderConfirmation(req.user, orderWithItems(order.id)).catch(() => {});
   res.json({ order: orderWithItems(order.id) });
 });
 
@@ -155,6 +158,7 @@ router.post('/:id/verify-onchain', requireAuth, async (req, res) => {
     if (!result.ok) return res.status(400).json({ error: result.reason });
     db.prepare("UPDATE orders SET payment_status = 'paid', tx_hash = ?, chain_id = ? WHERE id = ?")
       .run(txHash, CHAIN.chainId, order.id);
+    email.sendOrderConfirmation(req.user, orderWithItems(order.id)).catch(() => {});
     res.json({ order: orderWithItems(order.id), verified: { amount: result.amount, from: result.from } });
   } catch (e) {
     console.error(e);

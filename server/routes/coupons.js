@@ -9,7 +9,7 @@ const router = express.Router();
 router.post('/validate', requireAuth, (req, res) => {
   const items = getCartItems(req.user.id);
   if (!items.length) return res.status(400).json({ error: 'Seu carrinho está vazio.' });
-  const totals = computeTotals(items, req.body.code, req.body.payment);
+  const totals = computeTotals(items, req.body.code, req.body.payment, req.body.cep);
   if (totals.couponError) return res.status(400).json({ error: totals.couponError });
   if (!totals.coupon) return res.status(400).json({ error: 'Cupom inválido.' });
   res.json({ totals });
