@@ -182,6 +182,16 @@ CREATE TABLE IF NOT EXISTS reviews (
   UNIQUE(product_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL,            -- 'reset' | 'verify'
+  token       TEXT NOT NULL UNIQUE,
+  expires_at  TEXT NOT NULL,
+  used        INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_tx_user ON transactions(user_id);

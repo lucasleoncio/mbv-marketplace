@@ -36,6 +36,8 @@ async function render() {
     if (r === 'favoritos') return Pages.favorites();
     if (r === 'entrar') return Pages.auth(query);
     if (['sobre', 'contato', 'faq', 'privacidade', 'termos', 'trocas'].includes(r)) return Pages.page(r);
+    if (r === 'recuperar') return Pages.forgot();
+    if (r === 'redefinir') return Pages.reset(query);
     if (r === 'admin') return Pages.admin(parts.slice(1), query);
     return Pages.notFound();
   } catch (e) { console.error(e); toast('Erro', e.message, 'err'); }
@@ -569,13 +571,18 @@ function setPayment(method) {
   Flow.payment = method;
   app.querySelectorAll('[data-pay]').forEach(o => o.classList.toggle('active', o.dataset.pay === method));
   const panel = app.querySelector('#payPanel');
+  const mpOn = Store.chain && Store.chain.mpEnabled;
   if (method === 'card') {
-    panel.innerHTML = `<div class="field"><label>Número do cartão</label><input id="c_number" placeholder="0000 0000 0000 0000" inputmode="numeric"></div>
+    panel.innerHTML = mpOn
+      ? `<div class="eco-note"><div class="ic">${icon('card', 20)}</div><div><b>Cartão via Mercado Pago</b><br><span class="muted" style="font-size:13.5px">Você será direcionado ao ambiente seguro do Mercado Pago para pagar com cartão. O pedido é confirmado automaticamente.</span></div></div>`
+      : `<div class="field"><label>Número do cartão</label><input id="c_number" placeholder="0000 0000 0000 0000" inputmode="numeric"></div>
       <div class="field"><label>Nome impresso no cartão</label><input id="c_name" placeholder="Como está no cartão"></div>
       <div class="grid-2"><div class="field"><label>Validade</label><input id="c_expiry" placeholder="MM/AA"></div><div class="field"><label>CVV</label><input id="c_cvv" placeholder="123" inputmode="numeric"></div></div>
-      <p class="muted" style="font-size:12px">${icon('shield', 12)} Ambiente de demonstração — não insira dados reais. Estrutura pronta para integração com Stripe/Mercado Pago.</p>`;
+      <p class="muted" style="font-size:12px">${icon('shield', 12)} Ambiente de demonstração — não insira dados reais.</p>`;
   } else if (method === 'pix') {
-    panel.innerHTML = `<div class="eco-note"><div class="ic">${icon('pix', 20)}</div><div><b>Pix</b><br><span class="muted" style="font-size:13.5px">O código copia-e-cola será gerado ao confirmar o pedido. Pagamento com aprovação imediata.</span></div></div>`;
+    panel.innerHTML = mpOn
+      ? `<div class="eco-note"><div class="ic">${icon('pix', 20)}</div><div><b>Pix via Mercado Pago</b><br><span class="muted" style="font-size:13.5px">Você será direcionado ao Mercado Pago para pagar com Pix. Aprovação na hora.</span></div></div>`
+      : `<div class="eco-note"><div class="ic">${icon('pix', 20)}</div><div><b>Pix</b><br><span class="muted" style="font-size:13.5px">O código copia-e-cola será gerado ao confirmar o pedido. Pagamento com aprovação imediata.</span></div></div>`;
   } else if (Store.chain && Store.chain.enabled) {
     // Pagamento on-chain real (carteira do cliente / MetaMask)
     panel.innerHTML = `<div class="mbv-pay">
@@ -615,13 +622,15 @@ async function placeOrder() {
     if (!ship[k]) return toast('Endereço incompleto', 'Preencha o campo: ' + label, 'err');
   }
   const body = { payment_method: Flow.payment, coupon_code: Flow.coupon, shipping: ship };
-  if (Flow.payment === 'card') {
+  if (Flow.payment === 'card' && !(Store.chain && Store.chain.mpEnabled)) {
     body.card = { number: app.querySelector('#c_number').value, name: app.querySelector('#c_name').value, expiry: app.querySelector('#c_expiry').value, cvv: app.querySelector('#c_cvv').value };
   }
   const btn = app.querySelector('#placeOrder'); btn.disabled = true; btn.textContent = 'Processando…';
   try {
-    const { order } = await API.post('/orders', body);
+    const resp = await API.post('/orders', body);
     Flow.coupon = ''; await Store.refreshCart(); await Store.refreshUser(); renderHeader();
+    if (resp.redirect) { toast('Redirecionando…', 'Você será levado ao Mercado Pago.', 'info'); window.location.href = resp.redirect; return; }
+    const order = resp.order;
     if (order.payment_status === 'paid') toast('Pedido confirmado!', 'Pedido ' + order.code, 'ok');
     else toast('Pedido criado', 'Finalize o pagamento na próxima tela.', 'info');
     go('/pedido/' + order.id);
@@ -636,12 +645,12 @@ Pages.orderDetail = async function (id) {
   const paid = o.payment_status === 'paid';
   mount(`<div class="container" style="max-width:860px">
     <div style="text-align:center;margin:30px 0 24px">
-      <div style="width:70px;height:70px;border-radius:50%;background:${paid ? 'var(--green-100)' : '#fdf1dc'};color:${paid ? 'var(--green-700)' : 'var(--warn)'};display:grid;place-items:center;margin:0 auto 14px">${icon(paid ? 'check' : (o.payment_method === 'pix' ? 'pix' : 'coin'), 32)}</div>
-      <h1>${paid ? 'Pedido confirmado!' : (o.payment_method === 'pix' ? 'Pedido criado — pague com Pix' : 'Pedido criado — pague com NTR')}</h1>
+      <div style="width:70px;height:70px;border-radius:50%;background:${paid ? 'var(--green-100)' : '#fdf1dc'};color:${paid ? 'var(--green-700)' : 'var(--warn)'};display:grid;place-items:center;margin:0 auto 14px">${icon(paid ? 'check' : (o.payment_method === 'mbv' ? 'coin' : 'card'), 32)}</div>
+      <h1>${paid ? 'Pedido confirmado!' : 'Pedido criado — finalize o pagamento'}</h1>
       <p class="muted">Pedido <b>${escapeHtml(o.code)}</b> · ${new Date(o.created_at + 'Z').toLocaleString('pt-BR')}</p>
     </div>
 
-    ${o.payment_method === 'pix' && !paid ? pixPanel(o) : (o.payment_method === 'mbv' && !paid && Store.chain && Store.chain.enabled ? onchainPanel(o) : '')}
+    ${paymentPanel(o, paid)}
 
     <div class="panel">
       <div class="panel-head"><h3 style="margin:0">Itens</h3>${statusPill(o.status)} ${statusPill(o.payment_status)}</div>
@@ -682,7 +691,25 @@ Pages.orderDetail = async function (id) {
   if (po) po.addEventListener('click', () => payOrderOnchain(o));
   const vm = app.querySelector('#verifyManual');
   if (vm) vm.addEventListener('click', () => verifyOnchainManual(o));
+  const ro = app.querySelector('#refreshOrder');
+  if (ro) ro.addEventListener('click', () => Pages.orderDetail(o.id));
 };
+function paymentPanel(o, paid) {
+  if (paid) return '';
+  const mpOn = Store.chain && Store.chain.mpEnabled;
+  if (o.payment_method === 'mbv' && Store.chain && Store.chain.enabled) return onchainPanel(o);
+  if ((o.payment_method === 'card' || o.payment_method === 'pix') && mpOn) return mpPendingPanel(o);
+  if (o.payment_method === 'pix') return pixPanel(o);
+  return '';
+}
+function mpPendingPanel(o) {
+  return `<div class="panel"><div class="pix-box">
+    <div style="width:56px;height:56px;border-radius:50%;background:#fdf1dc;color:var(--warn);display:grid;place-items:center;margin:0 auto 10px">${icon('card', 26)}</div>
+    <b>Aguardando confirmação do pagamento</b>
+    <p class="muted" style="font-size:13.5px;margin:6px auto 14px;max-width:430px">Assim que o Mercado Pago confirmar, seu pedido é liberado automaticamente. Pode levar alguns instantes.</p>
+    <button class="btn btn-primary" id="refreshOrder">${icon('check', 16)} Já paguei — atualizar</button>
+  </div></div>`;
+}
 function pixPanel(o) {
   return `<div class="panel"><div class="pix-box">
     <div class="pix-qr">${qrArt(o.code)}</div>
@@ -881,6 +908,7 @@ Pages.auth = function (query) {
         <div class="field"><label>E-mail</label><input id="l_email" type="email" placeholder="voce@email.com"></div>
         <div class="field"><label>Senha</label><input id="l_pass" type="password" placeholder="••••••"></div>
         <button class="btn btn-primary btn-block btn-lg" id="loginBtn">Entrar</button>
+        <p style="text-align:center;margin-top:12px"><a href="#/recuperar" style="color:var(--green-700);font-weight:600;font-size:13.5px">Esqueci minha senha</a></p>
         <div class="demo-box"><b>Contas de demonstração:</b><br>Admin: <b>admin@mbv.com</b> / admin123<br>Cliente: <b>cliente@mbv.com</b> / cliente123</div>`;
       box.querySelector('#loginBtn').addEventListener('click', async () => {
         try {
@@ -909,6 +937,31 @@ Pages.auth = function (query) {
     app.querySelectorAll('[data-tab]').forEach(x => x.classList.toggle('active', x === b));
     renderForm(b.dataset.tab);
   }));
+};
+
+Pages.forgot = function () {
+  mount(`<div class="container"><div class="auth-wrap">
+    <h1>Recuperar senha</h1><p class="muted" style="margin:0 0 18px">Informe seu e-mail e enviaremos um link para redefinir a senha.</p>
+    <div class="field"><label>E-mail</label><input id="fg_email" type="email" placeholder="voce@email.com"></div>
+    <button class="btn btn-primary btn-block btn-lg" id="fgBtn">Enviar link</button>
+    <p style="text-align:center;margin-top:14px"><a href="#/entrar" style="color:var(--green-700);font-weight:600">Voltar ao login</a></p>
+  </div></div>`);
+  app.querySelector('#fgBtn').addEventListener('click', async () => {
+    try { await API.post('/auth/forgot', { email: app.querySelector('#fg_email').value.trim() }); toast('Verifique seu e-mail', 'Se houver uma conta, enviamos o link de redefinição.', 'ok'); }
+    catch (e) { toast('Ops', e.message, 'err'); }
+  });
+};
+Pages.reset = function (query) {
+  const token = query.token || '';
+  mount(`<div class="container"><div class="auth-wrap">
+    <h1>Redefinir senha</h1><p class="muted" style="margin:0 0 18px">Crie uma nova senha para sua conta.</p>
+    <div class="field"><label>Nova senha</label><input id="rs_pass" type="password" placeholder="Mínimo 6 caracteres"></div>
+    <button class="btn btn-primary btn-block btn-lg" id="rsBtn">Salvar nova senha</button>
+  </div></div>`);
+  app.querySelector('#rsBtn').addEventListener('click', async () => {
+    try { await API.post('/auth/reset', { token, password: app.querySelector('#rs_pass').value }); toast('Senha alterada!', 'Já pode entrar com a nova senha.', 'ok'); go('/entrar'); }
+    catch (e) { toast('Ops', e.message, 'err'); }
+  });
 };
 
 /* ======================= ADMIN ======================= */

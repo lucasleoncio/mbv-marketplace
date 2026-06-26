@@ -42,6 +42,15 @@ module.exports = {
     from: process.env.EMAIL_FROM || 'MBV — Movimento Brasil Verde <onboarding@resend.dev>'
   },
 
+  // --- Mercado Pago (Checkout Pro) — ativa quando MP_ACCESS_TOKEN existir ---
+  // Use o token de TESTE (começa com "TEST-") para validar; troque pelo de produção depois.
+  MP: {
+    accessToken: process.env.MP_ACCESS_TOKEN || '',
+    publicKey: process.env.MP_PUBLIC_KEY || '',
+    get enabled() { return !!this.accessToken; },
+    get sandbox() { return this.accessToken.startsWith('TEST-'); }
+  },
+
   // --- Pagamento on-chain do NTR (rede Polygon) ---
   // Sem NTR_CONTRACT + STORE_WALLET o app fica em modo SIMULADO (saldo interno).
   // Preenchendo essas variáveis, o checkout em NTR vira pagamento real on-chain.

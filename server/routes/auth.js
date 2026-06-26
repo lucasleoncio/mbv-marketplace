@@ -1,10 +1,12 @@
 const express = require('express');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
-const { JWT_SECRET, JWT_EXPIRES, TOKEN } = require('../config');
+const { JWT_SECRET, JWT_EXPIRES, TOKEN, APP_URL } = require('../config');
 const { requireAuth } = require('../middleware/auth');
 const wallet = require('../lib/wallet');
+const email = require('../lib/email');
 
 const router = express.Router();
 
@@ -62,6 +64,32 @@ router.post('/login', (req, res) => {
 router.get('/me', requireAuth, (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
   res.json({ user: publicUser(user) });
+});
+
+// POST /api/auth/forgot { email } -> envia link de redefinição (resposta sempre genérica)
+router.post('/forgot', (req, res) => {
+  const em = String(req.body.email || '').toLowerCase().trim();
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(em);
+  if (user) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 3600 * 1000).toISOString();
+    db.prepare("INSERT INTO auth_tokens (user_id, kind, token, expires_at) VALUES (?, 'reset', ?, ?)").run(user.id, token, expires);
+    email.sendPasswordReset(user, `${APP_URL}/#/redefinir?token=${token}`).catch(() => {});
+  }
+  res.json({ ok: true });
+});
+
+// POST /api/auth/reset { token, password }
+router.post('/reset', (req, res) => {
+  const token = String(req.body.token || '').trim();
+  const password = String(req.body.password || '');
+  if (password.length < 6) return res.status(400).json({ error: 'A senha deve ter ao menos 6 caracteres.' });
+  const row = db.prepare("SELECT * FROM auth_tokens WHERE token = ? AND kind = 'reset' AND used = 0").get(token);
+  if (!row || new Date(row.expires_at) < new Date())
+    return res.status(400).json({ error: 'Link inválido ou expirado. Solicite um novo.' });
+  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(bcrypt.hashSync(password, 10), row.user_id);
+  db.prepare('UPDATE auth_tokens SET used = 1 WHERE id = ?').run(row.id);
+  res.json({ ok: true });
 });
 
 module.exports = router;

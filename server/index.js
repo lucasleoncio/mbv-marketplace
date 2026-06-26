@@ -21,9 +21,14 @@ app.use('/api/coupons', require('./routes/coupons'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/webhooks', require('./routes/webhooks'));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'MBV Marketplace' }));
-app.get('/api/chain', (_req, res) => res.json(require('./lib/chain').publicConfig()));
+app.get('/api/chain', (_req, res) => {
+  const cfg = require('./lib/chain').publicConfig();
+  cfg.mpEnabled = require('./config').MP.enabled;
+  res.json(cfg);
+});
 
 // Frontend (SPA)
 app.use(express.static(path.join(__dirname, '..', 'public')));

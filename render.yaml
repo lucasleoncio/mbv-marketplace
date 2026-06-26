@@ -34,6 +34,15 @@ services:
       # - key: RATE_BRL_PER_NTR
       #   value: "9.36"
 
+      # --- Mercado Pago (cartão + Pix via Checkout Pro) ---
+      # - key: MP_ACCESS_TOKEN
+      #   value: "TEST-..."     # token de TESTE para validar (depois troque pelo de produção)
+      # --- E-mail (Resend) ---
+      # - key: RESEND_API_KEY
+      #   value: "re_..."
+      # - key: EMAIL_FROM
+      #   value: "MBV <no-reply@movimentobrasilverde.com>"
+
     # ---------------------------------------------------------------
     # DADOS PERSISTENTES (opcional, requer plano pago)
     # Sem isto, o banco SQLite e as imagens enviadas zeram a cada deploy.

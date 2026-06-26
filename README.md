@@ -147,6 +147,22 @@ Para escala/produção de verdade, o ideal é migrar o banco para **Postgres** (
 
 ---
 
+## 🔌 Ativar pagamento e e-mail reais
+
+O app roda em modo demonstração e **ativa as integrações sozinho** quando as variáveis existirem (no Render: *Environment*). Sem elas, nada quebra: cartão/Pix ficam simulados e os e-mails apenas aparecem no log.
+
+**Mercado Pago (Cartão + Pix):**
+- `MP_ACCESS_TOKEN` = seu Access Token (use o de **TESTE**, começa com `TEST-`, para validar).
+- No painel do Mercado Pago, aponte o **webhook** de pagamentos para `https://mbv-marketplace.onrender.com/api/webhooks/mercadopago`.
+- No checkout, o cliente é levado ao ambiente seguro do Mercado Pago (cartão, Pix, boleto) e o pedido é **confirmado automaticamente** pelo webhook.
+
+**E-mails (Resend):**
+- `RESEND_API_KEY` = sua chave (`re_...`).
+- `EMAIL_FROM` = ex.: `MBV <no-reply@movimentobrasilverde.com>` (verifique o domínio no Resend).
+- Ativa os e-mails de **confirmação de pedido** e de **recuperação de senha**.
+
+---
+
 ## 🛠️ Resolução de problemas
 
 - **Mensagens vermelhas de `better-sqlite3` / `node-gyp` durante o `npm install`**: são **esperadas e inofensivas** se o seu Mac não tem o compilador do Xcode. Esse pacote é **opcional** — quando ele não compila, o app usa automaticamente o **SQLite embutido no Node** (Node 22.13+/23.4+/24+). O `npm install` termina normalmente e o `npm start` funciona.

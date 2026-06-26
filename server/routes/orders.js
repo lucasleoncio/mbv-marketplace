@@ -5,7 +5,8 @@ const { getCartItems, computeTotals, round2 } = require('../lib/pricing');
 const wallet = require('../lib/wallet');
 const chain = require('../lib/chain');
 const email = require('../lib/email');
-const { TOKEN, CHAIN } = require('../config');
+const mp = require('../lib/mercadopago');
+const { TOKEN, CHAIN, MP } = require('../config');
 
 const router = express.Router();
 
@@ -31,7 +32,7 @@ function payCashback(order) {
 }
 
 // POST /api/orders  -> checkout
-router.post('/', requireAuth, (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   const items = getCartItems(req.user.id);
   if (!items.length) return res.status(400).json({ error: 'Seu carrinho está vazio.' });
 
@@ -53,7 +54,7 @@ router.post('/', requireAuth, (req, res) => {
   if (totals.couponError) return res.status(400).json({ error: totals.couponError });
 
   // Validação por forma de pagamento
-  if (method === 'card') {
+  if (method === 'card' && !MP.enabled) {
     const c = req.body.card || {};
     const number = String(c.number || '').replace(/\s/g, '');
     if (!/^\d{13,19}$/.test(number)) return res.status(400).json({ error: 'Número de cartão inválido.' });
@@ -64,6 +65,8 @@ router.post('/', requireAuth, (req, res) => {
   }
   // Modo on-chain: o pagamento em NTR é feito pela carteira do cliente e confirmado depois.
   const onchain = method === 'mbv' && CHAIN.onchainEnabled;
+  // Mercado Pago: cartão/Pix reais via Checkout Pro (confirmados por webhook).
+  const mpPay = (method === 'card' || method === 'pix') && MP.enabled;
 
   // Modo simulado (sem on-chain configurado): debita o saldo interno de demonstração.
   if (method === 'mbv' && !onchain) {
@@ -72,7 +75,7 @@ router.post('/', requireAuth, (req, res) => {
       return res.status(400).json({ error: `Saldo NTR insuficiente. Necessário ${totals.mbvAmount} NTR, você tem ${u.mbv_balance} NTR.` });
   }
 
-  const paymentStatus = (method === 'pix' || onchain) ? 'pending' : 'paid';
+  const paymentStatus = (method === 'pix' || onchain || mpPay) ? 'pending' : 'paid';
 
   const run = db.transaction(() => {
     const info = db.prepare(`
@@ -90,7 +93,7 @@ router.post('/', requireAuth, (req, res) => {
     const orderId = info.lastInsertRowid;
     const code = 'MBV-' + String(100000 + orderId);
     let pixCode = null;
-    if (method === 'pix') pixCode = fakePixCode(code, totals.total);
+    if (method === 'pix' && !MP.enabled) pixCode = fakePixCode(code, totals.total);
     db.prepare('UPDATE orders SET code = ?, pix_code = ?, chain_id = ? WHERE id = ?')
       .run(code, pixCode, onchain ? CHAIN.chainId : null, orderId);
 
@@ -118,6 +121,11 @@ router.post('/', requireAuth, (req, res) => {
 
   try {
     const orderId = run();
+    if (mpPay) {
+      const ord = orderWithItems(orderId);
+      const pref = await mp.createPreference(ord, req.user, method);
+      return res.status(201).json({ order: ord, redirect: pref.redirect });
+    }
     if (paymentStatus === 'paid') email.sendOrderConfirmation(req.user, orderWithItems(orderId)).catch(() => {});
     res.status(201).json({ order: orderWithItems(orderId), token: TOKEN, onchain });
   } catch (e) {
