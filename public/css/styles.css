@@ -88,6 +88,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* ---------- Hero ---------- */
 .hero{background:linear-gradient(135deg,#0b2c20 0%,#0f3d2e 50%,#14543b 100%);color:#fff;border-radius:var(--radius-lg);overflow:hidden;position:relative;margin-top:28px}
+/* Hero full-bleed (largura total, flush sob o header) — como no protótipo */
+.hero--full{border-radius:0;margin-top:0;width:100%}
+.hero--full .hero-inner{max-width:var(--max);margin:0 auto;padding:88px 22px}
 .hero::after{content:"";position:absolute;inset:0;background:radial-gradient(700px 360px at 88% -10%,rgba(167,224,106,.35),transparent 60%)}
 .hero-inner{position:relative;z-index:2;display:grid;grid-template-columns:1.15fr .85fr;gap:24px;align-items:center;padding:62px 54px}
 .hero h1{font-size:42px;color:#fff;letter-spacing:-.5px}
@@ -321,6 +324,7 @@ tr:last-child td{border-bottom:0}
 }
 @media (max-width:900px){
   .hero-inner{grid-template-columns:1fr;padding:36px 28px} .hero-art{display:none}
+  .hero--full .hero-inner{padding:56px 22px}
   .pdp{grid-template-columns:1fr} .pdp-media{position:static} .checkout{grid-template-columns:1fr}
   .cart-wrap{grid-template-columns:1fr} .catalog{grid-template-columns:1fr} .filters{position:static}
   .admin-wrap{grid-template-columns:1fr} .admin-nav{position:static;display:flex;overflow-x:auto}
@@ -329,6 +333,7 @@ tr:last-child td{border-bottom:0}
 @media (max-width:640px){
   .product-grid,.product-grid.cols-3{grid-template-columns:repeat(2,1fr)} .cat-grid{grid-template-columns:repeat(2,1fr)}
   .hero h1{font-size:31px} .stat-grid{grid-template-columns:1fr 1fr} .grid-3{grid-template-columns:1fr}
+  .hero--full .hero-inner{padding:40px 16px}
   .pay-methods{grid-template-columns:1fr} .banner-eco{grid-template-columns:1fr} .footer-grid{grid-template-columns:1fr}
   .header-main{gap:12px} .wallet-chip span.lbl{display:none} .container{padding:0 16px}
 }

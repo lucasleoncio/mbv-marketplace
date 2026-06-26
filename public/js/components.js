@@ -69,16 +69,23 @@ const UI = (function () {
     const [c1, c2, ic] = CAT_STYLE[p.category_slug] || ['#1f9a52', '#0c5e33', 'leaf'];
     const glyph = (I[ic] || I.leaf);
     const pack = escapeHtml(p.pack_size || '');
+    // Mockup de embalagem (saco/produto) on-brand: visual consistente quando não há foto real.
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
-      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs>
-      <rect width="400" height="300" fill="url(#g)"/>
-      <circle cx="330" cy="-20" r="120" fill="#ffffff" opacity="0.06"/>
-      <circle cx="60" cy="300" r="90" fill="#ffffff" opacity="0.05"/>
-      <g transform="translate(150,86)"><circle cx="50" cy="50" r="58" fill="#ffffff" opacity="0.14"/>
-      <g transform="translate(26,26) scale(2.05)" fill="none" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${glyph}</g></g>
-      <text x="200" y="250" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans,Arial" font-size="17" font-weight="700" opacity="0.95">${pack}</text>
-      <text x="22" y="34" fill="#ffffff" font-family="Plus Jakarta Sans,Arial" font-size="15" font-weight="800" opacity="0.9">MBV</text>
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6f4ec"/><stop offset="1" stop-color="#e7ebe1"/></linearGradient>
+        <linearGradient id="pk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient>
+      </defs>
+      <rect width="400" height="300" fill="url(#bg)"/>
+      <circle cx="342" cy="40" r="74" fill="#0c5e33" opacity="0.05"/>
+      <circle cx="44" cy="276" r="60" fill="#0c5e33" opacity="0.04"/>
+      <ellipse cx="200" cy="259" rx="98" ry="15" fill="#0c5e33" opacity="0.12"/>
+      <rect x="150" y="46" width="100" height="20" rx="8" fill="${c2}"/>
+      <rect x="128" y="58" width="144" height="196" rx="20" fill="url(#pk)"/>
+      <rect x="128" y="58" width="44" height="196" rx="20" fill="#ffffff" opacity="0.10"/>
+      <g transform="translate(176,92) scale(2.1)" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${glyph}</g>
+      <rect x="128" y="158" width="144" height="60" fill="#ffffff" opacity="0.94"/>
+      <text x="200" y="186" text-anchor="middle" fill="${c2}" font-family="Plus Jakarta Sans,Arial" font-size="19" font-weight="800">MBV</text>
+      <text x="200" y="206" text-anchor="middle" fill="#5d6f64" font-family="Plus Jakarta Sans,Arial" font-size="11" font-weight="600" letter-spacing="0.4">${pack || 'Movimento Brasil Verde'}</text>
     </svg>`;
     return 'data:image/svg+xml,' + encodeURIComponent(svg);
   }

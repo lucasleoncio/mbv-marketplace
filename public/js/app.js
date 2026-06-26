@@ -248,8 +248,7 @@ Pages.home = async function () {
     API.get('/products?sort=newest&limit=4')
   ]);
   const cats = Store.categories;
-  mount(`<div class="container">
-    <section class="hero" style="background:linear-gradient(135deg,rgba(11,44,32,.9),rgba(20,84,59,.58)),url('https://movimentobrasilverde.com/wp-content/uploads/2026/01/DSC06741.webp') center/cover,#0f3d2e"><div class="hero-inner">
+  mount(`<section class="hero hero--full" style="background:linear-gradient(135deg,rgba(11,44,32,.92),rgba(20,84,59,.5)),url('https://movimentobrasilverde.com/wp-content/uploads/2026/01/DSC06741.webp') center/cover,#0f3d2e"><div class="hero-inner">
       <div>
         <span class="eyebrow" style="color:var(--lime)">Desde 1992 · Regenerar para produzir</span>
         <h1>Insumos que regeneram o solo — e fazem o planeta prosperar</h1>
@@ -269,6 +268,7 @@ Pages.home = async function () {
       </div></div>
     </div></section>
 
+    <div class="container">
     <div class="banner-eco">
       <div class="benefit"><div class="ic">${icon('truck', 22)}</div><div><b>Frete grátis</b><span>Em compras acima de R$ 500</span></div></div>
       <div class="benefit"><div class="ic">${iconFill('coin', 22)}</div><div><b>Pague com Neutrotan (NTR)</b><span>5% de desconto + cashback</span></div></div>
@@ -1133,10 +1133,11 @@ Admin.productForm = async function (id) {
           <label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px"><input type="checkbox" id="p_featured" ${p.featured ? 'checked' : ''}> Destacar na home</label>
         </div>
         <div>
-          <label style="font-size:13px;font-weight:600">Imagem</label>
+          <label style="font-size:13px;font-weight:600">Imagem do produto</label>
           <div id="imgPreview" style="aspect-ratio:1;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--green-50);margin:8px 0"><img src="${productImage(p)}" style="width:100%;height:100%;object-fit:cover"></div>
           <input type="file" id="p_file" accept="image/*" style="font-size:12px;width:100%">
           <div class="field" style="margin-top:10px"><label>ou URL</label><input id="p_image" value="${escapeHtml(p.image || '')}" placeholder="https://..."></div>
+          <p class="muted" style="font-size:11.5px;margin:6px 0 0">Envie uma foto real (JPG/PNG, fundo claro). Sem foto, geramos uma arte da embalagem MBV.</p>
         </div>
       </div>
       <div style="display:flex;gap:10px;margin-top:14px"><button class="btn btn-primary btn-lg" id="saveProd">${icon('check', 17)} Salvar</button><a href="/admin/produtos" class="btn btn-ghost btn-lg">Cancelar</a></div>
