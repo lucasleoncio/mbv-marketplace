@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const cors = require('cors');
 const path = require('path');
 const { PORT, APP_URL } = require('./config');
@@ -6,6 +7,7 @@ const { authOptional } = require('./middleware/auth');
 const { ensureSeed } = require('./seed');
 
 const app = express();
+app.use(compression()); // gzip em HTML/CSS/JS
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 app.use(authOptional);
@@ -50,7 +52,7 @@ app.get('/sitemap.xml', (_req, res) => {
 });
 
 // Frontend: estáticos (sem auto-index — o SSR cuida das páginas HTML)
-app.use(express.static(path.join(__dirname, '..', 'public'), { index: false }));
+app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, maxAge: '7d', etag: true }));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return next();
   res.set('Cache-Control', 'no-cache');

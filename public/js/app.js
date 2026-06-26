@@ -249,7 +249,7 @@ Pages.home = async function () {
   ]);
   const cats = Store.categories;
   mount(`<div class="container">
-    <section class="hero"><div class="hero-inner">
+    <section class="hero" style="background:linear-gradient(135deg,rgba(11,44,32,.9),rgba(20,84,59,.58)),url('https://movimentobrasilverde.com/wp-content/uploads/2026/01/DSC06741.webp') center/cover,#0f3d2e"><div class="hero-inner">
       <div>
         <span class="eyebrow" style="color:var(--lime)">Desde 1992 · Regenerar para produzir</span>
         <h1>Insumos que regeneram o solo — e fazem o planeta prosperar</h1>
@@ -296,7 +296,7 @@ Pages.home = async function () {
       <div class="product-grid">${featured.map(productCard).join('')}</div>
     </section>
 
-    <section class="section"><div class="hero" style="margin:0"><div class="hero-inner" style="grid-template-columns:1fr;padding:40px 44px;text-align:center">
+    <section class="section"><div class="hero" style="margin:0;background:linear-gradient(135deg,rgba(11,44,32,.92),rgba(15,61,46,.8)),url('https://movimentobrasilverde.com/wp-content/uploads/2026/01/top-view-of-hands-holding-young-plant-2023-03-01-01-26-51-utc-1.jpg') center/cover,#0f3d2e"><div class="hero-inner" style="grid-template-columns:1fr;padding:40px 44px;text-align:center">
       <div style="max-width:680px;margin:0 auto">
         <span class="eyebrow" style="color:var(--lime)">Sustentabilidade que dá lucro</span>
         <h1 style="font-size:32px">Do solo à energia: tudo para um agro mais limpo</h1>

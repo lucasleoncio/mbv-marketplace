@@ -9,7 +9,18 @@ const Web3Pay = (function () {
   ];
 
   function hasWallet() { return typeof window.ethereum !== 'undefined'; }
-  function hasEthers() { return typeof window.ethers !== 'undefined'; }
+
+  // Carrega o ethers.js sob demanda (não pesa na home/catálogo — só na carteira/checkout).
+  function loadEthers() {
+    return new Promise((resolve, reject) => {
+      if (typeof window.ethers !== 'undefined') return resolve();
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js';
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Não foi possível carregar a biblioteca da carteira (verifique sua conexão).'));
+      document.head.appendChild(s);
+    });
+  }
 
   // Garante que a carteira está na rede correta (troca ou adiciona).
   async function ensureNetwork(chain) {
@@ -35,7 +46,7 @@ const Web3Pay = (function () {
 
   async function connect(chain) {
     if (!hasWallet()) throw new Error('Carteira não encontrada. Instale a MetaMask (metamask.io) para pagar com NTR.');
-    if (!hasEthers()) throw new Error('A biblioteca da carteira não carregou (verifique sua conexão e recarregue).');
+    await loadEthers();
     await window.ethereum.request({ method: 'eth_requestAccounts' });
     await ensureNetwork(chain);
     const provider = new ethers.BrowserProvider(window.ethereum);
@@ -58,5 +69,5 @@ const Web3Pay = (function () {
     return erc20.transfer(chain.store, amount);
   }
 
-  return { hasWallet, hasEthers, connect, payNtr };
+  return { hasWallet, loadEthers, connect, payNtr };
 })();
