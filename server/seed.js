@@ -50,7 +50,11 @@ const PRODUCTS = [
   { name: 'Sensor de Umidade do Solo (IoT)', cat: 'sustentabilidade', price: 289, compare: 0, stock: 75, unit: 'un', pack: '1 sensor + app', co2: 15, featured: 1,
     badges: ['Agricultura de Precisão'], desc: 'Monitore a umidade em tempo real e irrigue apenas o necessário.' },
   { name: 'Calcário Agrícola Dolomítico', cat: 'solo-agua', price: 45, compare: 0, stock: 400, unit: 'kg', pack: 'Saco 25 kg', co2: 1, featured: 0,
-    badges: ['Correção de Solo'], desc: 'Correção de acidez e fornecimento de cálcio e magnésio.' }
+    badges: ['Correção de Solo'], desc: 'Correção de acidez e fornecimento de cálcio e magnésio.' },
+  { name: 'Coin Max — Fertilizante Foliar Organomineral', cat: 'fertilizantes', price: 159.9, compare: 0, stock: 120, unit: 'L', pack: 'Frasco 1 litro', co2: 5, featured: 1,
+    img: 'https://agroeda.com.br/images/produto.png',
+    badges: ['Organomineral', 'Via Foliar', 'Registro MAPA'],
+    desc: 'Fertilizante foliar organomineral de alta performance da Agroeda, parceira do MBV. Seu diferencial é o bioestimulante genético — uma fórmula ultraconcentrada de extratos vegetais orgânicos que estimula a fotossíntese e a absorção de nutrientes, elevando a produção em no mínimo 7% nas culturas foliares. Composto por extratos de algas e aminoácidos, também atua como protetor natural contra pragas (como a cigarrinha no milho). Indicado para soja, milho, feijão, tomate, manga, morango, uva e outras. Garantias: N 4%, P₂O₅ 1%, B 1,5%, Mn 0,25%, Mo 0,5%, Zn 1,5% e COT 6%. Suspensão fluida homogênea (densidade 1,20 g/mL), Classe A, via foliar. Dose: 5 a 6 L/ha, aplicação única entre os estádios V4 e V6. Registro no MAPA RS-003872-5.000067. Também disponível em balde de 18 kg.' }
 ];
 
 const COUPONS = [
@@ -65,8 +69,8 @@ function seed() {
   for (const c of CATEGORIES) catId[c.slug] = insCat.run(c.name, c.slug, c.icon, c.description).lastInsertRowid;
 
   const insProd = db.prepare(`
-    INSERT INTO products (name, slug, description, price, compare_at_price, category_id, stock, unit, pack_size, badges, featured, co2, rating, rating_count, active)
-    VALUES (@name,@slug,@desc,@price,@compare,@cat,@stock,@unit,@pack,@badges,@featured,@co2,@rating,@rc,1)
+    INSERT INTO products (name, slug, description, price, compare_at_price, category_id, stock, unit, pack_size, badges, featured, co2, image, rating, rating_count, active)
+    VALUES (@name,@slug,@desc,@price,@compare,@cat,@stock,@unit,@pack,@badges,@featured,@co2,@image,@rating,@rc,1)
   `);
   for (const p of PRODUCTS) {
     insProd.run({
@@ -74,7 +78,7 @@ function seed() {
       slug: p.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
       desc: p.desc, price: p.price, compare: p.compare || null, cat: catId[p.cat], stock: p.stock,
       unit: p.unit, pack: p.pack, badges: JSON.stringify(p.badges || []), featured: p.featured || 0,
-      co2: p.co2 || 0, rating: Math.round((4.2 + Math.random() * 0.7) * 10) / 10, rc: 8 + Math.floor(Math.random() * 90)
+      co2: p.co2 || 0, image: p.img || null, rating: Math.round((4.2 + Math.random() * 0.7) * 10) / 10, rc: 8 + Math.floor(Math.random() * 90)
     });
   }
 
