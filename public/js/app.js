@@ -147,17 +147,27 @@ function renderFooter() {
 
 /* ---------------- Ações globais (carrinho/favoritos) ---------------- */
 async function addToCart(id, qty = 1) {
-  if (!Store.isAuthed()) { toast('Entre na sua conta', 'Faça login para comprar.', 'info'); return go('/entrar?next=' + encodeURIComponent(location.pathname + location.search)); }
+  id = Number(id); qty = Math.max(1, qty);
+  if (!Store.isAuthed()) {
+    Store.guestAddToCart(id, qty); renderHeader();
+    toast('Adicionado ao carrinho', 'Você finaliza ao entrar — seu carrinho fica salvo.', 'ok');
+    return;
+  }
   try {
-    const r = await API.post('/cart', { product_id: Number(id), quantity: qty });
+    const r = await API.post('/cart', { product_id: id, quantity: qty });
     Store.cartCount = r.count; renderHeader(); toast('Adicionado ao carrinho', '', 'ok');
   } catch (e) { toast('Ops', e.message, 'err'); }
 }
 async function toggleFav(id) {
-  if (!Store.isAuthed()) { toast('Entre na sua conta', 'Faça login para favoritar.', 'info'); return go('/entrar'); }
+  id = Number(id);
+  if (!Store.isAuthed()) {
+    const on = Store.guestToggleFav(id);
+    document.querySelectorAll(`[data-fav="${id}"]`).forEach(b => b.classList.toggle('on', on));
+    return;
+  }
   try {
     const r = await API.post('/cart/favorites/' + id);
-    if (r.favorited) Store.favorites.add(Number(id)); else Store.favorites.delete(Number(id));
+    if (r.favorited) Store.favorites.add(id); else Store.favorites.delete(id);
     document.querySelectorAll(`[data-fav="${id}"]`).forEach(b => b.classList.toggle('on', r.favorited));
   } catch (e) { toast('Ops', e.message, 'err'); }
 }
@@ -491,9 +501,24 @@ const Flow = { coupon: '', payment: 'card', cep: '', cpf: '' };
 
 /* ---------- CART ---------- */
 Pages.cart = async function () {
-  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('/carrinho'));
   loading();
-  const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon }));
+  let data;
+  if (Store.isAuthed()) {
+    data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon }));
+  } else {
+    const cart = Store.guestCart();
+    if (!cart.length) data = { items: [], count: 0, guest: true };
+    else {
+      const { items: prods } = await API.get('/products/by-ids?ids=' + cart.map(i => i.product_id).join(','));
+      const byId = {}; prods.forEach(p => { byId[p.id] = p; });
+      const items = cart.filter(i => byId[i.product_id]).map(i => {
+        const p = byId[i.product_id];
+        return { product_id: p.id, name: p.name, price: p.price, image: p.image, unit: p.unit, category_slug: p.category_slug, pack_size: p.pack_size, quantity: i.quantity };
+      });
+      const subtotal = Math.round(items.reduce((s, it) => s + it.price * it.quantity, 0) * 100) / 100;
+      data = { items, count: items.reduce((s, i) => s + i.quantity, 0), subtotal, guest: true };
+    }
+  }
   if (!data.items.length) {
     return mount(`<div class="container"><div class="empty" style="margin:50px 0"><div class="ic">${icon('cart', 32)}</div><h2>Seu carrinho está vazio</h2><p class="muted">Que tal explorar nossos insumos sustentáveis?</p><a href="/produtos" class="btn btn-primary btn-lg" style="margin-top:16px">Ver produtos</a></div></div>`);
   }
@@ -502,12 +527,23 @@ Pages.cart = async function () {
     <p class="muted" style="margin-bottom:18px">${data.count} item(ns)</p>
     <div class="cart-wrap">
       <div id="cartLines">${data.items.map(cartLine).join('')}</div>
-      ${summaryBox(data.totals, 'carrinho')}
+      ${data.guest ? guestSummary(data.subtotal) : summaryBox(data.totals, 'carrinho')}
     </div>
   </div>`);
   wireCartLines();
-  wireSummary('carrinho');
+  if (!data.guest) wireSummary('carrinho');
 };
+function guestSummary(subtotal) {
+  return `<div class="summary" id="summaryBox">
+    <h3>Resumo</h3>
+    <div class="sum-row"><span>Subtotal</span><span>${money(subtotal)}</span></div>
+    <div class="sum-row"><span>Frete e cupom</span><span class="muted">no checkout</span></div>
+    <div class="sum-row total"><span>Total parcial</span><span>${money(subtotal)}</span></div>
+    <div class="price-mbv" style="text-align:right;margin:4px 0 2px">${iconFill('coin', 13)} ${money(subtotal * 0.95)} pagando em NTR · <b>−5%</b></div>
+    <a href="/entrar?next=${encodeURIComponent('/checkout')}" class="btn btn-primary btn-block btn-lg" style="margin-top:10px">Entrar para finalizar ${icon('arrow', 17)}</a>
+    <p class="muted center" style="font-size:12px;margin-top:12px">${icon('shield', 12)} Seu carrinho fica salvo. Frete, cupom e pagamento na próxima etapa.</p>
+  </div>`;
+}
 function cartLine(it) {
   return `<div class="cart-line" data-line="${it.product_id}">
     <a href="/produto/${it.product_id}" class="ci-thumb"><img src="${productImage(it)}" onerror="${UI.imgFallback(it)}"></a>
@@ -523,16 +559,20 @@ function cartLine(it) {
   </div>`;
 }
 function wireCartLines() {
+  const authed = Store.isAuthed();
   app.querySelectorAll('[data-line]').forEach(line => {
-    const id = line.dataset.line;
+    const id = Number(line.dataset.line);
     line.querySelectorAll('[data-cq]').forEach(b => b.addEventListener('click', async () => {
       const cur = parseInt(line.querySelector('[data-qval]').value) || 1;
       const q = Math.max(0, cur + parseInt(b.dataset.cq));
-      await API.put('/cart/' + id, { quantity: q });
-      await Store.refreshCart(); renderHeader(); Pages.cart();
+      if (authed) { await API.put('/cart/' + id, { quantity: q }); await Store.refreshCart(); }
+      else { Store.guestSetQty(id, q); }
+      renderHeader(); Pages.cart();
     }));
     line.querySelector('[data-rm]').addEventListener('click', async () => {
-      await API.del('/cart/' + id); await Store.refreshCart(); renderHeader(); Pages.cart();
+      if (authed) { await API.del('/cart/' + id); await Store.refreshCart(); }
+      else { Store.guestSetQty(id, 0); }
+      renderHeader(); Pages.cart();
     });
   });
 }
@@ -967,9 +1007,13 @@ function txRow(t) {
 
 /* ---------- FAVORITES ---------- */
 Pages.favorites = async function () {
-  if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('/favoritos'));
   loading();
-  const { items } = await API.get('/cart/favorites/list');
+  let items;
+  if (Store.isAuthed()) { items = (await API.get('/cart/favorites/list')).items; }
+  else {
+    const favs = Store.guestFavs();
+    items = favs.length ? (await API.get('/products/by-ids?ids=' + favs.join(','))).items : [];
+  }
   mount(`<div class="container">
     <h1 style="margin:24px 0 18px;font-size:27px">Favoritos</h1>
     ${items.length ? `<div class="product-grid">${items.map(productCard).join('')}</div>` : `<div class="empty"><div class="ic">${iconFill('heart', 28)}</div><h3>Nenhum favorito ainda</h3><p class="muted">Toque no coração dos produtos que você gosta.</p><a href="/produtos" class="btn btn-primary" style="margin-top:14px">Explorar</a></div>`}
@@ -998,7 +1042,7 @@ Pages.auth = function (query) {
       box.querySelector('#loginBtn').addEventListener('click', async () => {
         try {
           const r = await API.post('/auth/login', { email: app.querySelector('#l_email').value.trim(), password: app.querySelector('#l_pass').value });
-          Store.setSession(r.token, r.user); await Store.refreshCart(); await Store.refreshFavorites(); renderHeader();
+          Store.setSession(r.token, r.user); await Store.refreshFavorites(); await Store.mergeGuestToServer(); await Store.refreshCart(); await Store.refreshFavorites(); renderHeader();
           toast('Olá, ' + r.user.name.split(' ')[0] + '!', '', 'ok'); go(decodeURIComponent(next).replace(/^#/, '') || '/');
         } catch (e) { toast('Falha no login', e.message, 'err'); }
       });
@@ -1011,7 +1055,7 @@ Pages.auth = function (query) {
       box.querySelector('#regBtn').addEventListener('click', async () => {
         try {
           const r = await API.post('/auth/register', { name: app.querySelector('#r_name').value.trim(), email: app.querySelector('#r_email').value.trim(), password: app.querySelector('#r_pass').value });
-          Store.setSession(r.token, r.user); renderHeader();
+          Store.setSession(r.token, r.user); await Store.mergeGuestToServer(); await Store.refreshCart(); await Store.refreshFavorites(); renderHeader();
           toast('Conta criada!', 'Você ganhou 150 NTR 🌱', 'ok'); go(decodeURIComponent(next).replace(/^#/, '') || '/');
         } catch (e) { toast('Não foi possível cadastrar', e.message, 'err'); }
       });

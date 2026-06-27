@@ -87,6 +87,19 @@ router.get('/', (req, res) => {
   res.json({ items: items.map(serialize), total, page, pages: Math.ceil(total / limit) || 1 });
 });
 
+// Resumo de produtos por IDs — usado pelo carrinho/favoritos de convidado. (Antes de /:id)
+router.get('/by-ids', (req, res) => {
+  const ids = String(req.query.ids || '').split(',').map(n => parseInt(n)).filter(Boolean).slice(0, 100);
+  if (!ids.length) return res.json({ items: [] });
+  const ph = ids.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT p.*, c.name AS category_name, c.slug AS category_slug
+    FROM products p LEFT JOIN categories c ON c.id = p.category_id
+    WHERE p.active = 1 AND p.id IN (${ph})
+  `).all(...ids);
+  res.json({ items: rows.map(serialize) });
+});
+
 // ---------- Detalhe ----------
 router.get('/:id', (req, res) => {
   const p = db.prepare(`
