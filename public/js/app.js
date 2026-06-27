@@ -131,7 +131,7 @@ function renderFooter() {
       <div><h5>Categorias</h5>${Store.categories.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('')}</div>
       <div><h5>Conta</h5><a href="/conta">Minha conta</a><a href="/pedidos">Meus pedidos</a><a href="/carteira">Carteira Neutrotan (NTR)</a><a href="/favoritos">Favoritos</a></div>
       <div><h5>Institucional</h5><a href="/sobre">Sobre</a><a href="/contato">Contato</a><a href="/faq">FAQ</a><a href="/termos">Termos de uso</a><a href="/privacidade">Privacidade</a><a href="/trocas">Trocas e devoluções</a></div>
-      <div><h5>Neutrotan (NTR)</h5><a href="/carteira">Saldo & extrato</a><a href="/checkout">Pagar com cripto</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">Utility token ERC-20 na rede Polygon.<br>Lastro real em cote · 1 NTR = R$ 9,36.</span></div>
+      <div><h5>Neutrotan (NTR)</h5><a href="/carteira">Saldo & extrato</a><a href="/checkout">Pagar com cripto</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">Utility token ERC-20 na rede Polygon.<br>Lastro real em cote · Valor de referência: 1 NTR = ${money(Store.rate)}.</span></div>
     </div>
     <div class="footer-bottom"><span>© 2026 Grupo Movimento Brasil Verde · CNPJ 54.224.102/0001-10</span><span style="display:inline-flex;align-items:center;gap:16px;flex-wrap:wrap"><span>Cartão · Pix · Neutrotan (NTR) 🌱</span><span class="demo"><a class="petrus-credit" href="https://www.petrus-software.com" target="_blank" rel="noopener" aria-label="Petrus — petrus-software.com">Desenvolvido por <span class="petrus-chip"><img src="/img/petrus-logo.svg" alt="Petrus" height="15" loading="lazy"></span></a></span></span></div>
   </div></div>`;
@@ -374,7 +374,10 @@ Pages.product = async function (id) {
           <span class="price">${money(p.price)}</span>${p.unit !== 'un' ? `<span class="muted">/ ${escapeHtml(p.pack_size || p.unit)}</span>` : ''}
           ${off ? `<span class="chip" style="background:var(--gold);color:#3a2a00">-${off}%</span>` : ''}
         </div>
-        <div class="price-mbv" style="font-size:14px">${iconFill('coin', 14)} ou <b>${ntr(p.price)}</b> pagando com Neutrotan (NTR) <span style="color:var(--green-700)">(5% OFF)</span></div>
+        <div class="ntr-compare">
+          <div class="opt"><span>Cartão ou Pix</span><b>${money(p.price)}</b></div>
+          <div class="opt best"><span>${iconFill('coin', 13)} Pagando em NTR <em>−5%</em></span><b>${money(p.price * 0.95)}</b><small>${ntr(p.price)} · você economiza ${money(p.price * 0.05)}</small></div>
+        </div>
 
         <div class="spec">
           <div class="item"><span>Embalagem</span><b>${escapeHtml(p.pack_size || '—')}</b></div>
@@ -506,12 +509,16 @@ function wireCartLines() {
 /* ---------- Caixa de resumo (compartilhada) ---------- */
 function summaryBox(t, mode) {
   const freeShip = t.shipping === 0;
+  const freeAbove = 500;
+  const base = Math.max(0, t.subtotal - t.discount);
+  const remaining = Math.round((freeAbove - base) * 100) / 100;
   return `<div class="summary" id="summaryBox">
     <h3>Resumo</h3>
     <div class="sum-row"><span>Subtotal</span><span>${money(t.subtotal)}</span></div>
     ${t.couponDiscount > 0 ? `<div class="sum-row"><span class="green">Cupom ${escapeHtml(t.coupon ? t.coupon.code : '')}</span><span class="green">− ${money(t.couponDiscount)}</span></div>` : ''}
     ${t.cryptoDiscount > 0 ? `<div class="sum-row"><span class="green">Desconto NTR (5%)</span><span class="green">− ${money(t.cryptoDiscount)}</span></div>` : ''}
     <div class="sum-row"><span>Frete</span><span>${freeShip ? '<b class="green">Grátis</b>' : money(t.shipping)}</span></div>
+    ${!freeShip && remaining > 0 ? `<div class="ship-nudge"><div class="bar"><span style="width:${Math.min(100, base / freeAbove * 100)}%"></span></div><small>Faltam <b>${money(remaining)}</b> para o <b class="green">frete grátis</b></small></div>` : ''}
     <div class="sum-row total"><span>Total</span><span>${money(t.total)}</span></div>
     <div class="price-mbv" style="text-align:right;margin:4px 0 2px">${iconFill('coin', 13)} ${mbv(t.mbvAmount)} · cashback de ${mbv(t.cashbackMbv)}</div>
     <div class="coupon-row">

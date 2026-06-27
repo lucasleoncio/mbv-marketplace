@@ -143,6 +143,20 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .price small{font-weight:600;font-size:12px;color:var(--muted)}
 .price-old{font-size:12.5px;color:var(--muted);text-decoration:line-through}
 .price-mbv{font-size:11.5px;color:var(--green-700);font-weight:600;margin-top:2px}
+/* Destaque de economia pagando em NTR (página de produto) */
+.ntr-compare{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 4px}
+.ntr-compare .opt{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff}
+.ntr-compare .opt>span{display:block;font-size:12px;color:var(--muted);margin-bottom:2px}
+.ntr-compare .opt b{font-size:18px;font-family:var(--display)}
+.ntr-compare .opt.best{border-color:var(--green-600);background:var(--green-50)}
+.ntr-compare .opt.best>span{color:var(--green-800);font-weight:600}
+.ntr-compare .opt.best em{font-style:normal;background:var(--lime);color:#15391f;border-radius:999px;padding:1px 7px;font-size:11px;font-weight:800;margin-left:4px}
+.ntr-compare .opt.best small{display:block;color:var(--green-700);font-size:11.5px;margin-top:3px}
+/* Nudge "faltam R$ X para o frete grátis" (resumo) */
+.ship-nudge{margin:2px 0 8px}
+.ship-nudge .bar{height:7px;border-radius:999px;background:var(--green-100);overflow:hidden}
+.ship-nudge .bar span{display:block;height:100%;background:var(--lime);border-radius:999px;transition:width .3s}
+.ship-nudge small{display:block;font-size:12px;color:var(--muted);margin-top:5px}
 .card .add{border:1px solid var(--green-600);background:var(--green-50);color:var(--green-800);width:42px;height:42px;border-radius:12px;display:grid;place-items:center;flex:none}
 .card .add:hover{background:var(--green-700);color:#fff}
 
@@ -337,7 +351,9 @@ tr:last-child td{border-bottom:0}
   .pdp{grid-template-columns:1fr} .pdp-media{position:static} .checkout{grid-template-columns:1fr}
   .cart-wrap{grid-template-columns:1fr} .catalog{grid-template-columns:1fr} .filters{position:static}
   .admin-wrap{grid-template-columns:1fr} .admin-nav{position:static;display:flex;overflow-x:auto}
-  .search{display:none} .navrow{display:none}
+  /* Navegação mobile: busca em linha cheia + categorias com rolagem (em vez de esconder) */
+  .header-main{height:auto;flex-wrap:wrap;padding-block:12px;gap:12px}
+  .search{order:5;flex:1 1 100%;max-width:none} .navrow{display:block}
 }
 @media (max-width:640px){
   .product-grid,.product-grid.cols-3{grid-template-columns:repeat(2,1fr)} .cat-grid{grid-template-columns:repeat(2,1fr)}

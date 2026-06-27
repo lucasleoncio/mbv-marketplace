@@ -119,7 +119,7 @@ const UI = (function () {
           <div>
             ${off ? `<div class="price-old">${money(p.compare_at_price)}</div>` : ''}
             <div class="price">${money(p.price)} ${p.unit && p.unit !== 'un' ? `<small>/ ${escapeHtml(p.pack_size || p.unit)}</small>` : ''}</div>
-            <div class="price-mbv">${UI.iconFill('coin', 12)} ${ntr(p.price)}</div>
+            <div class="price-mbv">${UI.iconFill('coin', 12)} ${money(p.price * 0.95)} em NTR · <b>−5%</b></div>
           </div>
           <button class="add" data-add="${p.id}" title="Adicionar ao carrinho">${icon('plus', 20)}</button>
         </div>
