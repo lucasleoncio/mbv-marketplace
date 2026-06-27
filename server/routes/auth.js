@@ -23,7 +23,7 @@ function sign(user) {
 }
 
 // POST /api/auth/register
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
   const { name, email, password } = req.body || {};
   if (!name || !email || !password)
     return res.status(400).json({ error: 'Informe nome, e-mail e senha.' });
@@ -33,7 +33,7 @@ router.post('/register', (req, res) => {
   const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(String(email).toLowerCase());
   if (exists) return res.status(409).json({ error: 'Já existe uma conta com este e-mail.' });
 
-  const hash = bcrypt.hashSync(String(password), 10);
+  const hash = await bcrypt.hash(String(password), 10);
   const address = wallet.makeWalletAddress();
   const info = db.prepare(
     'INSERT INTO users (name, email, password, role, wallet_address) VALUES (?,?,?,?,?)'
@@ -51,12 +51,12 @@ router.post('/register', (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Informe e-mail e senha.' });
 
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(String(email).toLowerCase().trim());
-  if (!user || !bcrypt.compareSync(String(password), user.password))
+  if (!user || !(await bcrypt.compare(String(password), user.password)))
     return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
 
   res.json({ token: sign(user), user: publicUser(user) });
@@ -82,14 +82,14 @@ router.post('/forgot', (req, res) => {
 });
 
 // POST /api/auth/reset { token, password }
-router.post('/reset', (req, res) => {
+router.post('/reset', async (req, res) => {
   const token = String(req.body.token || '').trim();
   const password = String(req.body.password || '');
   if (password.length < 6) return res.status(400).json({ error: 'A senha deve ter ao menos 6 caracteres.' });
   const row = db.prepare("SELECT * FROM auth_tokens WHERE token = ? AND kind = 'reset' AND used = 0").get(token);
   if (!row || new Date(row.expires_at) < new Date())
     return res.status(400).json({ error: 'Link inválido ou expirado. Solicite um novo.' });
-  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(bcrypt.hashSync(password, 10), row.user_id);
+  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(await bcrypt.hash(password, 10), row.user_id);
   db.prepare('UPDATE auth_tokens SET used = 1 WHERE id = ?').run(row.id);
   res.json({ ok: true });
 });

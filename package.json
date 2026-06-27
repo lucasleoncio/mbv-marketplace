@@ -8,7 +8,8 @@
     "start": "node server/index.js",
     "start:builtin": "node --experimental-sqlite server/index.js",
     "dev": "node --watch server/index.js",
-    "seed": "node server/seed.js --reset"
+    "seed": "node server/seed.js --reset",
+    "test": "node --experimental-sqlite --test server/test/*.test.js"
   },
   "engines": {
     "node": ">=18"
@@ -19,6 +20,8 @@
     "cors": "^2.8.5",
     "ethers": "^6.13.4",
     "express": "^4.21.2",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.1"
   },

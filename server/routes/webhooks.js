@@ -1,14 +1,34 @@
 // Webhook do Mercado Pago: recebe a notificação, confirma o status direto na API
 // (fonte da verdade) e marca o pedido como pago.
 const express = require('express');
+const crypto = require('crypto');
 const db = require('../db');
 const mp = require('../lib/mercadopago');
 const wallet = require('../lib/wallet');
 const email = require('../lib/email');
+const { MP } = require('../config');
 
 const router = express.Router();
 
+// Valida a assinatura do webhook do Mercado Pago (x-signature) quando há secret.
+// Sem secret (modo demonstração), não valida — comportamento atual preservado.
+function validSignature(req) {
+  if (!MP.webhookSecret) return true;
+  try {
+    const sig = String(req.headers['x-signature'] || '');
+    const reqId = String(req.headers['x-request-id'] || '');
+    const parts = Object.fromEntries(sig.split(',').map(kv => kv.split('=').map(s => s.trim())));
+    const dataId = String(req.query['data.id'] || req.query.id || (req.body && req.body.data && req.body.data.id) || '');
+    if (!parts.ts || !parts.v1 || !dataId) return false;
+    const manifest = `id:${dataId.toLowerCase()};request-id:${reqId};ts:${parts.ts};`;
+    const hmac = crypto.createHmac('sha256', MP.webhookSecret).update(manifest).digest('hex');
+    const a = Buffer.from(hmac), b = Buffer.from(String(parts.v1));
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch (_) { return false; }
+}
+
 router.post('/mercadopago', async (req, res) => {
+  if (!validSignature(req)) return res.sendStatus(401);
   res.sendStatus(200); // responde rápido; processa depois
   try {
     const type = req.query.type || req.query.topic || (req.body && req.body.type);

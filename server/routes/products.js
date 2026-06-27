@@ -10,14 +10,23 @@ const router = express.Router();
 // ---------- Upload de imagens (admin) ----------
 const UPLOAD_DIR = process.env.MBV_UPLOAD_DIR || path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const ALLOWED_IMG = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, '') || '.jpg';
+    // extensão derivada do TIPO declarado (não do nome do arquivo enviado)
+    const ext = ALLOWED_IMG[file.mimetype] || '.jpg';
     cb(null, `prod_${Date.now()}_${Math.round(Math.random() * 1e6)}${ext}`);
   }
 });
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_IMG[file.mimetype]) return cb(null, true);
+    cb(Object.assign(new Error('Formato inválido. Envie uma imagem JPG, PNG ou WebP.'), { status: 400 }), false);
+  }
+});
 
 // ---------- Helpers ----------
 function slugify(s) {
@@ -119,6 +128,18 @@ router.post('/:id/reviews', requireAuth, (req, res) => {
 // =================== ADMIN ===================
 router.post('/upload', requireAdmin, upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
+  // Validação por conteúdo (magic bytes): garante que é mesmo uma imagem.
+  try {
+    const fd = fs.openSync(req.file.path, 'r');
+    const buf = Buffer.alloc(12); fs.readSync(fd, buf, 0, 12, 0); fs.closeSync(fd);
+    const isJpg = buf[0] === 0xFF && buf[1] === 0xD8;
+    const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+    const isWebp = buf.slice(0, 4).toString('ascii') === 'RIFF' && buf.slice(8, 12).toString('ascii') === 'WEBP';
+    if (!isJpg && !isPng && !isWebp) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(400).json({ error: 'Arquivo não é uma imagem válida.' });
+    }
+  } catch (_) { /* se não conseguir ler, segue (não bloqueia o admin) */ }
   res.status(201).json({ url: `/uploads/${req.file.filename}` });
 });
 

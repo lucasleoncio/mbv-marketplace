@@ -6,7 +6,7 @@ const wallet = require('../lib/wallet');
 const chain = require('../lib/chain');
 const email = require('../lib/email');
 const mp = require('../lib/mercadopago');
-const { TOKEN, CHAIN, MP } = require('../config');
+const { TOKEN, CHAIN, MP, DEMO_MODE } = require('../config');
 
 const router = express.Router();
 
@@ -68,6 +68,14 @@ router.post('/', requireAuth, async (req, res) => {
   const onchain = method === 'mbv' && CHAIN.onchainEnabled;
   // Mercado Pago: cartão/Pix reais via Checkout Pro (confirmados por webhook).
   const mpPay = (method === 'card' || method === 'pix') && MP.enabled;
+
+  // GO-LIVE: fora do modo demonstração, não aceitar pagamentos simulados.
+  if (!DEMO_MODE) {
+    if ((method === 'card' || method === 'pix') && !MP.enabled)
+      return res.status(503).json({ error: 'Pagamento por Cartão/Pix temporariamente indisponível. Tente novamente em instantes.' });
+    if (method === 'mbv' && !onchain)
+      return res.status(503).json({ error: 'Pagamento em NTR on-chain temporariamente indisponível.' });
+  }
 
   // Modo simulado (sem on-chain configurado): debita o saldo interno de demonstração.
   if (method === 'mbv' && !onchain) {
@@ -165,8 +173,10 @@ router.post('/:id/verify-onchain', requireAuth, async (req, res) => {
     const expected = chain.toBaseUnits(order.mbv_amount);
     const result = await chain.verifyPayment(txHash, expected);
     if (!result.ok) return res.status(400).json({ error: result.reason });
-    db.prepare("UPDATE orders SET payment_status = 'paid', tx_hash = ?, chain_id = ? WHERE id = ?")
+    // Atualização condicional (idempotente): só marca pago se ainda não estiver.
+    const upd = db.prepare("UPDATE orders SET payment_status = 'paid', tx_hash = ?, chain_id = ? WHERE id = ? AND payment_status != 'paid'")
       .run(txHash, CHAIN.chainId, order.id);
+    if (upd.changes !== 1) return res.json({ order: orderWithItems(order.id) }); // já confirmado em paralelo
     email.sendOrderConfirmation(req.user, orderWithItems(order.id)).catch(() => {});
     res.json({ order: orderWithItems(order.id), verified: { amount: result.amount, from: result.from } });
   } catch (e) {

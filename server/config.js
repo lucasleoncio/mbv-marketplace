@@ -1,11 +1,28 @@
 // Configurações centrais do MBV Marketplace
 // Em produção, mova segredos para variáveis de ambiente (.env).
+const DEFAULT_JWT_SECRET = 'mbv-troque-este-segredo-em-producao-2026';
+
 module.exports = {
   PORT: process.env.PORT || 4000,
+  NODE_ENV: process.env.NODE_ENV || 'development',
+
+  // Modo DEMONSTRAÇÃO: true por padrão (protótipo no Render free).
+  // No GO-LIVE, defina MBV_DEMO_MODE=false para EXIGIR segredo/chaves reais e
+  // bloquear pagamentos simulados (Cartão/Pix/recarga "de mentira").
+  DEMO_MODE: process.env.MBV_DEMO_MODE !== 'false',
 
   // Segredo do JWT. TROQUE em produção (use uma string longa e aleatória).
-  JWT_SECRET: process.env.JWT_SECRET || 'mbv-troque-este-segredo-em-producao-2026',
-  JWT_EXPIRES: '7d',
+  JWT_SECRET: process.env.JWT_SECRET || DEFAULT_JWT_SECRET,
+  JWT_USING_DEFAULT_SECRET: !process.env.JWT_SECRET || process.env.JWT_SECRET === DEFAULT_JWT_SECRET,
+  JWT_EXPIRES: process.env.JWT_EXPIRES || '7d',
+
+  // Origens permitidas no CORS (separadas por vírgula). Requisições sem Origin
+  // (server-to-server, ex.: webhook) são permitidas.
+  ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || 'https://mbv-marketplace.onrender.com,https://mbv-site.onrender.com,https://movimentobrasilverde.com')
+    .split(',').map(s => s.trim()).filter(Boolean),
+
+  // Observabilidade opcional (defina o DSN para ativar no futuro).
+  SENTRY_DSN: process.env.SENTRY_DSN || '',
 
   // --- Economia do token Neutrotan (NTR) — utility token do MBV ---
   // Token: "Neutrotan" (NTR) — ERC-20 na rede Polygon, com lastro real no "cote".
@@ -50,6 +67,7 @@ module.exports = {
   MP: {
     accessToken: process.env.MP_ACCESS_TOKEN || '',
     publicKey: process.env.MP_PUBLIC_KEY || '',
+    webhookSecret: process.env.MP_WEBHOOK_SECRET || '', // valida a assinatura do webhook quando definido
     get enabled() { return !!this.accessToken; },
     get sandbox() { return this.accessToken.startsWith('TEST-'); }
   },

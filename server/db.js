@@ -208,4 +208,7 @@ for (const stmt of [
   'ALTER TABLE coupons ADD COLUMN commission_pct REAL NOT NULL DEFAULT 0'
 ]) { try { db.exec(stmt); } catch (_) {} }
 
+// Índice único parcial: o mesmo txHash on-chain não pode pagar dois pedidos.
+try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_tx_hash ON orders(tx_hash) WHERE tx_hash IS NOT NULL'); } catch (_) {}
+
 module.exports = db;
