@@ -22,30 +22,38 @@ function buildQuery(obj) {
   return q ? '?' + q : '';
 }
 function mount(html) { app.innerHTML = html; window.scrollTo(0, 0); }
-function loading() { mount(`<div class="container"><div class="loader">${icon('leaf', 26)}<br>Carregando…</div></div>`); }
+function loading() {
+  const cards = Array.from({ length: 8 }).map(() => `<div class="skel-card"><div class="skel skel-img"></div><div class="skel skel-line"></div><div class="skel skel-line short"></div></div>`).join('');
+  mount(`<div class="container"><div class="skel skel-hero"></div><div class="product-grid" style="margin-top:24px">${cards}</div><p class="muted center" id="coldHint" style="margin-top:18px;opacity:0;transition:opacity .4s">Preparando a loja… na primeira visita pode levar alguns segundos.</p></div>`);
+  setTimeout(() => { const h = document.getElementById('coldHint'); if (h) h.style.opacity = '1'; }, 2500);
+}
 
 async function render() {
   const { parts, query } = parseRoute();
   const r = parts[0] || '';
   try {
-    if (r === '') return Pages.home();
-    if (r === 'produtos') return Pages.catalog(query);
-    if (r === 'produto') return Pages.product(parts[1]);
-    if (r === 'carrinho') return Pages.cart();
-    if (r === 'checkout') return Pages.checkout();
-    if (r === 'pedido') return Pages.orderDetail(parts[1]);
-    if (r === 'pedidos') return Pages.orders();
-    if (r === 'conta') return Pages.account();
-    if (r === 'carteira') return Pages.wallet();
-    if (r === 'favoritos') return Pages.favorites();
-    if (r === 'entrar') return Pages.auth(query);
+    if (r === '') return await Pages.home();
+    if (r === 'produtos') return await Pages.catalog(query);
+    if (r === 'produto') return await Pages.product(parts[1]);
+    if (r === 'carrinho') return await Pages.cart();
+    if (r === 'checkout') return await Pages.checkout();
+    if (r === 'pedido') return await Pages.orderDetail(parts[1]);
+    if (r === 'pedidos') return await Pages.orders();
+    if (r === 'conta') return await Pages.account();
+    if (r === 'carteira') return await Pages.wallet();
+    if (r === 'favoritos') return await Pages.favorites();
+    if (r === 'entrar') return await Pages.auth(query);
     if (['sobre', 'contato', 'faq', 'privacidade', 'termos', 'trocas'].includes(r)) return Pages.page(r);
     if (r === 'recuperar') return Pages.forgot();
     if (r === 'redefinir') return Pages.reset(query);
-    if (r === 'verificar') return Pages.verify(query);
-    if (r === 'admin') return Pages.admin(parts.slice(1), query);
+    if (r === 'verificar') return await Pages.verify(query);
+    if (r === 'admin') return await Pages.admin(parts.slice(1), query);
     return Pages.notFound();
-  } catch (e) { console.error(e); toast('Erro', e.message, 'err'); }
+  } catch (e) {
+    console.error(e);
+    if (e && e.status === 404) return Pages.notFound();
+    return Pages.error(e);
+  }
 }
 
 /* ---------------- Header & Footer ---------------- */
@@ -167,6 +175,7 @@ document.addEventListener('click', e => {
 const Pages = {};
 
 Pages.notFound = () => mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('search', 30)}</div><h2>Página não encontrada</h2><p class="muted">O endereço acessado não existe.</p><a href="/" class="btn btn-primary" style="margin-top:14px">Voltar à loja</a></div></div>`);
+Pages.error = (e) => mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('shield', 30)}</div><h2>Algo deu errado</h2><p class="muted">${escapeHtml((e && e.message) || 'Não foi possível carregar esta página.')}</p><button class="btn btn-primary" style="margin-top:14px" onclick="location.reload()">Tentar novamente</button></div></div>`);
 
 /* ---------- PÁGINAS INSTITUCIONAIS / LEGAIS ---------- */
 const STATIC_PAGES = {
@@ -398,6 +407,11 @@ Pages.product = async function (id) {
           <div><div class="ic">${iconFill('coin', 18)}</div><span>Cartão, Pix<br>ou NTR</span></div>
           <div><div class="ic">${icon('leaf', 18)}</div><span>Tecnologia<br>COT/PVE</span></div>
         </div>
+        <div class="ship-calc">
+          <label>${icon('truck', 15)} Calcular frete e prazo</label>
+          <div class="row"><input id="shipCep" inputmode="numeric" maxlength="9" placeholder="Digite seu CEP"><button class="btn btn-light" id="shipBtn">Calcular</button></div>
+          <div id="shipResult" class="muted" style="font-size:13px;margin-top:8px"></div>
+        </div>
         ${p.co2 ? `<div class="eco-note"><div class="ic">${icon('leaf', 20)}</div><div><b>Impacto positivo</b><br><span class="muted" style="font-size:13.5px">Cada unidade evita cerca de ${p.co2} kg de CO₂ na sua operação.</span></div></div>` : ''}
         <div class="desc">${escapeHtml(p.description || '')}</div>
       </div>
@@ -430,6 +444,23 @@ Pages.product = async function (id) {
   }));
   app.querySelector('#addBtn').addEventListener('click', () => addToCart(p.id, parseInt(qtyEl.value) || 1));
   app.querySelector('#buyBtn').addEventListener('click', async () => { await addToCart(p.id, parseInt(qtyEl.value) || 1); go('/checkout'); });
+  const shipBtn = app.querySelector('#shipBtn');
+  if (shipBtn) {
+    const cepEl = app.querySelector('#shipCep'); const out = app.querySelector('#shipResult');
+    const calc = async () => {
+      const cep = (cepEl.value || '').replace(/\D/g, '');
+      if (cep.length !== 8) { out.textContent = 'Digite um CEP válido (8 dígitos).'; return; }
+      out.textContent = 'Calculando…';
+      try {
+        const r = await API.get(`/shipping?cep=${cep}&value=${p.price}`);
+        out.innerHTML = r.free
+          ? `<b class="green">Frete grátis</b> · entrega em ${r.prazo} dias úteis`
+          : `Frete: <b>${money(r.shipping)}</b> · entrega em ${r.prazo} dias úteis. <span class="muted">Grátis acima de ${money(r.freeAbove)}.</span>`;
+      } catch (e) { out.textContent = e.message; }
+    };
+    shipBtn.addEventListener('click', calc);
+    cepEl.addEventListener('keydown', e => { if (e.key === 'Enter') calc(); });
+  }
   const rv = app.querySelector('#rvSubmit');
   if (rv) rv.addEventListener('click', async () => {
     try {

@@ -42,12 +42,19 @@ module.exports = {
     cashbackPct: 0.02 // 2% do total vira NTR
   },
 
+  // Teto de desconto total (cupom + NTR) como fração do subtotal. 1 = sem teto (padrão).
+  // No go-live, defina ex. MAX_DISCOUNT_PCT=0.15 para proteger a margem em ticket alto.
+  MAX_DISCOUNT_PCT: Number(process.env.MAX_DISCOUNT_PCT || 1),
+
   // --- Frete ---
   SHIPPING: {
     flat: 29.9, // frete padrão (fallback quando não há CEP)
     freeAbove: 500, // frete grátis acima de R$ 500
     // Frete por região, pelo 1º dígito do CEP (ajustável). Origem aprox. Sul/Sudeste.
-    byRegion: { '0': 24.9, '1': 24.9, '8': 27.9, '9': 29.9, '2': 32.9, '3': 34.9, '4': 39.9, '5': 42.9, '6': 49.9, '7': 46.9 }
+    byRegion: { '0': 24.9, '1': 24.9, '8': 27.9, '9': 29.9, '2': 32.9, '3': 34.9, '4': 39.9, '5': 42.9, '6': 49.9, '7': 46.9 },
+    // Prazo estimado (dias úteis) por região — exibido na estimativa de frete.
+    prazoByRegion: { '0': '2 a 4', '1': '2 a 4', '8': '3 a 6', '9': '3 a 6', '2': '4 a 8', '3': '4 a 8', '4': '5 a 9', '5': '6 a 10', '6': '7 a 12', '7': '6 a 11' },
+    prazoDefault: '5 a 10'
   },
 
   // URL pública do app (usada em links de e-mail e retornos de pagamento)

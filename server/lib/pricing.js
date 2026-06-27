@@ -1,6 +1,6 @@
 // Cálculo de totais do carrinho/checkout — centraliza cupom, frete e desconto cripto.
 const db = require('../db');
-const { SHIPPING, TOKEN } = require('../config');
+const { SHIPPING, TOKEN, MAX_DISCOUNT_PCT } = require('../config');
 const { freightForCep } = require('./shipping');
 
 function round2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
@@ -43,9 +43,13 @@ function computeTotals(items, couponCode, paymentMethod, cep, cpf) {
     }
   }
 
-  // Desconto adicional ao pagar com MBV Coin (cripto própria)
-  const cryptoDiscount = paymentMethod === 'mbv'
+  // Desconto adicional ao pagar com NTR (cripto própria)
+  let cryptoDiscount = paymentMethod === 'mbv'
     ? round2((subtotal - couponDiscount) * TOKEN.cryptoDiscountPct) : 0;
+
+  // Proteção de margem: teto de desconto total (cupom + NTR) sobre o subtotal.
+  const discountCap = round2(subtotal * (MAX_DISCOUNT_PCT || 1));
+  if (couponDiscount + cryptoDiscount > discountCap) cryptoDiscount = Math.max(0, round2(discountCap - couponDiscount));
 
   const discount = round2(couponDiscount + cryptoDiscount);
   const afterDiscount = round2(subtotal - discount);

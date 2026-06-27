@@ -157,6 +157,19 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .ship-nudge .bar{height:7px;border-radius:999px;background:var(--green-100);overflow:hidden}
 .ship-nudge .bar span{display:block;height:100%;background:var(--lime);border-radius:999px;transition:width .3s}
 .ship-nudge small{display:block;font-size:12px;color:var(--muted);margin-top:5px}
+/* Skeleton de carregamento (suaviza o cold start) */
+.skel{background:linear-gradient(90deg,#eef1ec 25%,#f6f8f4 37%,#eef1ec 63%);background-size:400% 100%;animation:skel 1.3s ease-in-out infinite;border-radius:10px}
+@keyframes skel{0%{background-position:100% 0}100%{background-position:0 0}}
+.skel-hero{height:180px;border-radius:var(--radius-lg);margin-top:28px}
+.skel-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px}
+.skel-img{height:150px;margin-bottom:12px}
+.skel-line{height:12px;margin:8px 0}
+.skel-line.short{width:55%}
+/* Calcular frete na página do produto */
+.ship-calc{margin:16px 0;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--sand)}
+.ship-calc label{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;margin-bottom:8px}
+.ship-calc .row{display:flex;gap:8px}
+.ship-calc input{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;background:#fff}
 .card .add{border:1px solid var(--green-600);background:var(--green-50);color:var(--green-800);width:42px;height:42px;border-radius:12px;display:grid;place-items:center;flex:none}
 .card .add:hover{background:var(--green-700);color:#fff}
 

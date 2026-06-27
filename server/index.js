@@ -69,6 +69,18 @@ app.get('/api/chain', (_req, res) => {
   cfg.gaId = require('./config').GA_ID;
   res.json(cfg);
 });
+// Estimativa de frete e prazo por CEP (usado na página do produto e no carrinho).
+app.get('/api/shipping', (req, res) => {
+  const { freightForCep } = require('./lib/shipping');
+  const S = cfg.SHIPPING;
+  const digits = String(req.query.cep || '').replace(/\D/g, '');
+  if (digits.length !== 8) return res.status(400).json({ error: 'Informe um CEP válido (8 dígitos).' });
+  const value = Number(req.query.value) || 0;
+  const shipping = freightForCep(digits, value);
+  const prazo = (S.prazoByRegion && S.prazoByRegion[digits[0]]) || S.prazoDefault || '5 a 10';
+  res.json({ shipping, free: shipping === 0, freeAbove: S.freeAbove, prazo });
+});
+
 // Recebe erros do frontend e os registra (aparecem no log do servidor/Render).
 app.post('/api/client-error', (req, res) => {
   console.error('[client-error]', JSON.stringify(req.body || {}).slice(0, 600));
