@@ -142,15 +142,22 @@ const UI = (function () {
   function openModal(title, bodyHtml, opts = {}) {
     const root = document.getElementById('modal-root');
     root.innerHTML = `<div class="modal-overlay" data-overlay>
-      <div class="modal" style="${opts.maxWidth ? 'max-width:' + opts.maxWidth + 'px' : ''}">
-        <div class="modal-head"><h3>${escapeHtml(title)}</h3><button class="x" data-close>✕</button></div>
+      <div class="modal" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" tabindex="-1" style="${opts.maxWidth ? 'max-width:' + opts.maxWidth + 'px' : ''}">
+        <div class="modal-head"><h3>${escapeHtml(title)}</h3><button class="x" data-close aria-label="Fechar">✕</button></div>
         <div class="modal-body">${bodyHtml}</div>
       </div></div>`;
     root.querySelector('[data-overlay]').addEventListener('click', e => { if (e.target.dataset.overlay !== undefined) closeModal(); });
     root.querySelector('[data-close]').addEventListener('click', closeModal);
+    root._onKey = (e) => { if (e.key === 'Escape') closeModal(); };
+    document.addEventListener('keydown', root._onKey);
+    const m = root.querySelector('.modal'); if (m) m.focus();
     return root.querySelector('.modal-body');
   }
-  function closeModal() { document.getElementById('modal-root').innerHTML = ''; }
+  function closeModal() {
+    const root = document.getElementById('modal-root');
+    if (root._onKey) { document.removeEventListener('keydown', root._onKey); root._onKey = null; }
+    root.innerHTML = '';
+  }
 
   function statusPill(s) {
     const map = { processing: 'Em processamento', shipped: 'Enviado', delivered: 'Entregue', cancelled: 'Cancelado',

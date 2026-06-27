@@ -30,7 +30,7 @@ module.exports = {
     name: 'Neutrotan',
     symbol: 'NTR',
     network: 'Polygon (ERC-20)',
-    backing: 'Lastro real em cote (composto orgânico)',
+    backing: 'Lastro em Carbono Orgânico Total (COT)',
     platform: 'neutrotan.com',
     // Cotação FIXA do NTR (valor de referência do whitepaper). Ajustável por env.
     brlPerToken: Number(process.env.RATE_BRL_PER_NTR || 9.36), // 1 NTR = R$ 9,36

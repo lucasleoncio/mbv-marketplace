@@ -44,6 +44,7 @@ async function render() {
     if (r === 'favoritos') return await Pages.favorites();
     if (r === 'entrar') return await Pages.auth(query);
     if (['sobre', 'contato', 'faq', 'privacidade', 'termos', 'trocas'].includes(r)) return Pages.page(r);
+    if (r === 'transparencia') return Pages.transparencia();
     if (r === 'recuperar') return Pages.forgot();
     if (r === 'redefinir') return Pages.reset(query);
     if (r === 'verificar') return await Pages.verify(query);
@@ -139,7 +140,7 @@ function renderFooter() {
       <div><h5>Categorias</h5>${Store.categories.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('')}</div>
       <div><h5>Conta</h5><a href="/conta">Minha conta</a><a href="/pedidos">Meus pedidos</a><a href="/carteira">Carteira Neutrotan (NTR)</a><a href="/favoritos">Favoritos</a></div>
       <div><h5>Institucional</h5><a href="/sobre">Sobre</a><a href="/contato">Contato</a><a href="/faq">FAQ</a><a href="/termos">Termos de uso</a><a href="/privacidade">Privacidade</a><a href="/trocas">Trocas e devoluções</a></div>
-      <div><h5>Neutrotan (NTR)</h5><a href="/carteira">Saldo & extrato</a><a href="/checkout">Pagar com cripto</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">Utility token ERC-20 na rede Polygon.<br>Lastro real em cote · Valor de referência: 1 NTR = ${money(Store.rate)}.</span></div>
+      <div><h5>Neutrotan (NTR)</h5><a href="/carteira">Saldo & extrato</a><a href="/checkout">Pagar com cripto</a><a href="/transparencia">Transparência on-chain</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">Utility token ERC-20 na rede Polygon.<br>Lastro em Carbono Orgânico Total (COT) · Valor de referência: 1 NTR = ${money(Store.rate)}.</span></div>
     </div>
     <div class="footer-bottom"><span>© 2026 Grupo Movimento Brasil Verde · CNPJ 54.224.102/0001-10</span><span style="display:inline-flex;align-items:center;gap:16px;flex-wrap:wrap"><span>Cartão · Pix · Neutrotan (NTR) 🌱</span><span class="demo"><a class="petrus-credit" href="https://www.petrus-software.com" target="_blank" rel="noopener" aria-label="Petrus — petrus-software.com">Desenvolvido por <span class="petrus-chip"><img src="/img/petrus-logo.svg" alt="Petrus" height="15" loading="lazy"></span></a></span></span></div>
   </div></div>`;
@@ -187,6 +188,38 @@ const Pages = {};
 Pages.notFound = () => mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('search', 30)}</div><h2>Página não encontrada</h2><p class="muted">O endereço acessado não existe.</p><a href="/" class="btn btn-primary" style="margin-top:14px">Voltar à loja</a></div></div>`);
 Pages.error = (e) => mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('shield', 30)}</div><h2>Algo deu errado</h2><p class="muted">${escapeHtml((e && e.message) || 'Não foi possível carregar esta página.')}</p><button class="btn btn-primary" style="margin-top:14px" onclick="location.reload()">Tentar novamente</button></div></div>`);
 
+Pages.transparencia = function () {
+  const c = Store.chain || {}; const tok = c.token || {};
+  const ex = c.explorer || 'https://polygonscan.com';
+  const row = (label, val, kind) => `<div class="sum-row"><span>${label}</span>${val
+    ? (kind ? `<a href="${ex}/${kind}/${val}" target="_blank" rel="noopener" style="font-family:monospace;font-size:12px;color:var(--green-700);word-break:break-all;text-align:right;max-width:60%">${escapeHtml(val)}</a>` : `<b style="text-align:right">${escapeHtml(val)}</b>`)
+    : '<span class="muted">em configuração</span>'}</div>`;
+  mount(`<div class="container"><div class="breadcrumb"><a href="/">Início</a> ${icon('arrow', 13)} <span>Transparência</span></div>
+    <div class="prose" style="max-width:820px">
+      <span class="eyebrow">Do campo à blockchain</span>
+      <h1>Transparência on-chain</h1>
+      <p>O <b>Neutrotan (NTR)</b> é um <b>utility token</b> (ERC-20) na rede <b>Polygon</b>, usado para pagar pedidos com desconto e cashback. Abaixo estão os endereços públicos para você auditar as transações na própria blockchain.</p>
+      <div class="panel" style="background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 22px;margin:18px 0">
+        <h3 style="margin:0 0 10px">Dados da rede</h3>
+        ${row('Rede', c.name || 'Polygon', null)}
+        ${row('Contrato do token (NTR)', tok.address, 'token')}
+        ${row('Carteira da loja', c.store, 'address')}
+        <div class="sum-row"><span>Confirmações exigidas</span><b>${c.minConfirmations || 2}</b></div>
+        <div class="sum-row"><span>Valor de referência</span><b>1 NTR = ${money(c.brlPerToken || Store.rate)}</b></div>
+      </div>
+      <p class="muted" style="font-size:13px">${c.enabled
+        ? 'Pagamentos em NTR são não-custodiais: o cliente assina a transferência na própria carteira e o servidor apenas lê a blockchain para confirmar o recebimento.'
+        : 'O pagamento on-chain está em configuração nesta fase. Os endereços de produção (mainnet) serão publicados aqui no go-live.'}</p>
+      <h2>Glossário</h2>
+      <div class="faq">
+        <details><summary>COT — Carbono Orgânico Total</summary><div>Indicador da matéria orgânica/carbono dos insumos e do solo; base técnica da linha MBV e referência de lastro do token.</div></details>
+        <details><summary>COT/PVE</summary><div>Protocolos biotecnológicos do MBV aplicados à nutrição das plantas e à regeneração de solos.</div></details>
+        <details><summary>Utility token</summary><div>Token de utilidade: serve para usar e pagar dentro da plataforma. Não constitui valor mobiliário nem promessa de rentabilidade (ver Termos de Uso).</div></details>
+        <details><summary>Organomineral</summary><div>Fertilizante que combina matéria orgânica e minerais, registrado no MAPA.</div></details>
+      </div>
+    </div></div>`);
+};
+
 /* ---------- PÁGINAS INSTITUCIONAIS / LEGAIS ---------- */
 const STATIC_PAGES = {
   sobre: { crumb: 'Sobre', html: `<div class="prose">
@@ -214,7 +247,7 @@ const STATIC_PAGES = {
     <h1>Perguntas frequentes</h1>
     <h2>Como funciona o pagamento?</h2><p>Você pode pagar com Cartão, Pix ou com o token <b>Neutrotan (NTR)</b>, direto pela sua carteira (MetaMask) na rede Polygon.</p>
     <h2>Qual o valor do frete?</h2><p>O frete é calculado pelo seu CEP no checkout. Compras acima de <b>R$ 500</b> têm frete grátis.</p>
-    <h2>O que é o token NTR?</h2><p>É o utility token do ecossistema MBV (ERC-20 na Polygon), com lastro real no "cote". Dá descontos e cashback nas compras.</p>
+    <h2>O que é o token NTR?</h2><p>É o utility token do ecossistema MBV (ERC-20 na Polygon), com lastro em Carbono Orgânico Total (COT). Dá descontos e cashback nas compras. Veja os endereços on-chain em <a href="/transparencia" style="color:var(--green-700);font-weight:600">Transparência</a>.</p>
     <h2>Posso trocar ou devolver?</h2><p>Sim — você tem até 7 dias após o recebimento. Veja a página de Trocas e Devoluções.</p>
     <h2>É seguro?</h2><p>Sim. Pagamentos processados por parceiros e, no caso do NTR, confirmados on-chain. Não guardamos dados de cartão nem chaves de carteira.</p>
   </div>` },
@@ -284,7 +317,7 @@ Pages.home = async function () {
       <div class="hero-art"><div class="hero-card">
         <div class="coin">${iconFill('coin', 30)}</div>
         <h3 style="color:#fff;margin:16px 0 4px">Neutrotan (NTR)</h3>
-        <p style="color:#cfe9d6;font-size:13.5px;margin:0">Utility token do ecossistema MBV (ERC-20 · Polygon), com lastro real em cote. Pague, acumule cashback e ganhe descontos exclusivos.</p>
+        <p style="color:#cfe9d6;font-size:13.5px;margin:0">Utility token do ecossistema MBV (ERC-20 · Polygon), com lastro em Carbono Orgânico Total (COT). Pague, acumule cashback e ganhe descontos exclusivos.</p>
         <div style="display:flex;justify-content:space-between;margin-top:16px;font-size:13px;color:#eafff0"><span>Cashback</span><b>2% por compra</b></div>
         <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:13px;color:#eafff0"><span>Bônus de boas-vindas</span><b>150 NTR</b></div>
       </div></div>
@@ -299,13 +332,13 @@ Pages.home = async function () {
 
     <section class="section" style="margin-top:34px">
       <div style="text-align:center;margin-bottom:18px">
-        <span class="eyebrow">Parcerias que transformam</span>
-        <h2 style="font-size:22px">Confiança e governança — do campo à blockchain</h2>
+        <span class="eyebrow">Parceiros e iniciativas</span>
+        <h2 style="font-size:22px">Com quem caminhamos</h2>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center">
         ${['IBAMA', 'Pacto Global ONU', 'Future Roots', 'ICP', 'KMA Law', 'Agroeda'].map(n => `<span style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 20px;font-family:var(--display);font-weight:700;color:var(--green-800);box-shadow:var(--shadow-sm)">${n}</span>`).join('')}
       </div>
-      <p class="muted center" style="margin-top:14px;font-size:13px">Signatária do Pacto Global da ONU · Alinhada aos ODS da ONU · Projetos auditáveis em blockchain</p>
+      <p class="muted center" style="margin-top:14px;font-size:13px">Participamos do Pacto Global da ONU e mantemos projetos auditáveis em blockchain. <a href="/transparencia" style="color:var(--green-700);font-weight:600">Ver transparência on-chain</a></p>
     </section>
 
     <section class="section">

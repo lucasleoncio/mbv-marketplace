@@ -17,7 +17,7 @@
 - Sitemap: https://mbv-marketplace.onrender.com/sitemap.xml
 
 ## Token
-- Neutrotan (NTR): utility token ERC-20 na rede Polygon, com lastro em "cote" (composto orgânico), usado para adquirir insumos no marketplace, com desconto e cashback.
+- Neutrotan (NTR): utility token ERC-20 na rede Polygon, com lastro em Carbono Orgânico Total (COT), usado para adquirir insumos no marketplace, com desconto e cashback.
 
 ## Contato
 - WhatsApp: +55 48 9174-1610 · E-mail: contato@movimentobrasilverde.com
