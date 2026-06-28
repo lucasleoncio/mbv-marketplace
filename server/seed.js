@@ -57,6 +57,20 @@ const PRODUCTS = [
     desc: 'Fertilizante foliar organomineral de alta performance da Agroeda, parceira do MBV. Seu diferencial é o bioestimulante genético — uma fórmula ultraconcentrada de extratos vegetais orgânicos que estimula a fotossíntese e a absorção de nutrientes, elevando a produção em no mínimo 7% nas culturas foliares. Composto por extratos de algas e aminoácidos, favorece plantas mais vigorosas e tolerantes a estresses. Indicado para soja, milho, feijão, tomate, manga, morango, uva e outras. Garantias: N 4%, P₂O₅ 1%, B 1,5%, Mn 0,25%, Mo 0,5%, Zn 1,5% e COT 6%. Suspensão fluida homogênea (densidade 1,20 g/mL), Classe A, via foliar. Dose: 5 a 6 L/ha, aplicação única entre os estádios V4 e V6. Registro no MAPA RS-003872-5.000067. Também disponível em balde de 18 kg.' }
 ];
 
+// Dose recomendada por hectare (na unidade do produto) e quantidade por embalagem — para a calculadora.
+const DOSE = {
+  'Eutroterra — Condicionador de Solo Orgânico': { dose: 8, packQty: 16 },
+  'Biofertilizante Líquido Premium': { dose: 3, packQty: 5 },
+  'Fertilizante Foliar NPK Orgânico': { dose: 2.5, packQty: 5 },
+  'Inoculante de Nitrogênio (Rhizobium)': { dose: 1, packQty: 1 },
+  'Bioestimulante de Enraizamento': { dose: 0.5, packQty: 1 },
+  'Defensivo Biológico — Controle de Pragas': { dose: 2, packQty: 5 },
+  'Sementes de Adubo Verde (Crotalária)': { dose: 20, packQty: 10 },
+  'Mix de Sementes de Cobertura': { dose: 15, packQty: 5 },
+  'Adjuvante Agrícola Biodegradável': { dose: 0.5, packQty: 5 },
+  'Coin Max — Fertilizante Foliar Organomineral': { dose: 5.5, packQty: 1 }
+};
+
 const COUPONS = [
   { code: 'COINMAX', type: 'percent', value: 10, description: 'Cupom Coinmax: 10% OFF + 20 MBV de cashback', min_subtotal: 0, cashback_mbv: 20 },
   { code: 'SAFRA15', type: 'percent', value: 15, description: '15% OFF em compras acima de R$ 500', min_subtotal: 500, cashback_mbv: 0 },
@@ -69,8 +83,8 @@ function seed() {
   for (const c of CATEGORIES) catId[c.slug] = insCat.run(c.name, c.slug, c.icon, c.description).lastInsertRowid;
 
   const insProd = db.prepare(`
-    INSERT INTO products (name, slug, description, price, compare_at_price, category_id, stock, unit, pack_size, badges, featured, co2, image, rating, rating_count, active)
-    VALUES (@name,@slug,@desc,@price,@compare,@cat,@stock,@unit,@pack,@badges,@featured,@co2,@image,@rating,@rc,1)
+    INSERT INTO products (name, slug, description, price, compare_at_price, category_id, stock, unit, pack_size, badges, featured, co2, image, dose_per_ha, pack_qty, rating, rating_count, active)
+    VALUES (@name,@slug,@desc,@price,@compare,@cat,@stock,@unit,@pack,@badges,@featured,@co2,@image,@dose,@packQty,@rating,@rc,1)
   `);
   for (const p of PRODUCTS) {
     insProd.run({
@@ -78,7 +92,9 @@ function seed() {
       slug: p.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
       desc: p.desc, price: p.price, compare: p.compare || null, cat: catId[p.cat], stock: p.stock,
       unit: p.unit, pack: p.pack, badges: JSON.stringify(p.badges || []), featured: p.featured || 0,
-      co2: p.co2 || 0, image: p.img || null, rating: Math.round((4.2 + Math.random() * 0.7) * 10) / 10, rc: 8 + Math.floor(Math.random() * 90)
+      co2: p.co2 || 0, image: p.img || null,
+      dose: (DOSE[p.name] || {}).dose || 0, packQty: (DOSE[p.name] || {}).packQty || 1,
+      rating: Math.round((4.2 + Math.random() * 0.7) * 10) / 10, rc: 8 + Math.floor(Math.random() * 90)
     });
   }
 

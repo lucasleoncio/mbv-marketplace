@@ -172,6 +172,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .ship-calc label{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;margin-bottom:8px}
 .ship-calc .row{display:flex;gap:8px}
 .ship-calc input{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;background:#fff}
+.dose-calc{margin:16px 0;border:1px solid var(--green-600);border-radius:12px;padding:12px 14px;background:var(--green-50)}
+.dose-calc label{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;margin-bottom:8px;color:var(--green-800)}
+.dose-calc .row{display:flex;gap:8px}
+.dose-calc input{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;font:inherit;background:#fff}
 .card .add{border:1px solid var(--green-600);background:var(--green-50);color:var(--green-800);width:42px;height:42px;border-radius:12px;display:grid;place-items:center;flex:none}
 .card .add:hover{background:var(--green-700);color:#fff}
 

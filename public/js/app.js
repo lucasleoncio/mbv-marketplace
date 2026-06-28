@@ -460,6 +460,11 @@ Pages.product = async function (id) {
           <div><div class="ic">${iconFill('coin', 18)}</div><span>Cartão, Pix<br>ou NTR</span></div>
           <div><div class="ic">${icon('leaf', 18)}</div><span>Tecnologia<br>COT/PVE</span></div>
         </div>
+        ${p.dose_per_ha > 0 ? `<div class="dose-calc">
+          <label>${icon('sprout', 15)} Calcule para a sua área</label>
+          <div class="row"><input id="doseHa" type="number" min="0" step="0.5" inputmode="decimal" placeholder="Área em hectares (ha)"><button class="btn btn-light" id="doseBtn">Calcular</button></div>
+          <div id="doseResult" class="muted" style="font-size:13px;margin-top:8px"></div>
+        </div>` : ''}
         <div class="ship-calc">
           <label>${icon('truck', 15)} Calcular frete e prazo</label>
           <div class="row"><input id="shipCep" inputmode="numeric" maxlength="9" placeholder="Digite seu CEP"><button class="btn btn-light" id="shipBtn">Calcular</button></div>
@@ -513,6 +518,20 @@ Pages.product = async function (id) {
     };
     shipBtn.addEventListener('click', calc);
     cepEl.addEventListener('keydown', e => { if (e.key === 'Enter') calc(); });
+  }
+  const doseBtn = app.querySelector('#doseBtn');
+  if (doseBtn) {
+    const haEl = app.querySelector('#doseHa'); const out = app.querySelector('#doseResult');
+    const calc = () => {
+      const ha = parseFloat(haEl.value) || 0;
+      if (ha <= 0) { out.textContent = 'Informe a área em hectares.'; return; }
+      const total = Math.round(ha * p.dose_per_ha * 10) / 10;
+      const units = Math.max(1, Math.ceil(total / (p.pack_qty || 1)));
+      out.innerHTML = `Para <b>${ha} ha</b> (~${total} ${escapeHtml(p.unit)}): <b>${units}× ${escapeHtml(p.pack_size || 'un')}</b> · ${money(units * p.price)} <button class="btn btn-primary btn-sm" id="doseAdd" style="margin-left:6px">Adicionar ${units}</button>`;
+      const add = app.querySelector('#doseAdd'); if (add) add.addEventListener('click', () => addToCart(p.id, units));
+    };
+    doseBtn.addEventListener('click', calc);
+    haEl.addEventListener('keydown', e => { if (e.key === 'Enter') calc(); });
   }
   const rv = app.querySelector('#rvSubmit');
   if (rv) rv.addEventListener('click', async () => {

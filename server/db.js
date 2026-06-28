@@ -206,7 +206,9 @@ for (const stmt of [
   'ALTER TABLE coupons ADD COLUMN cpf_cnpj TEXT',
   'ALTER TABLE coupons ADD COLUMN affiliate TEXT',
   'ALTER TABLE coupons ADD COLUMN commission_pct REAL NOT NULL DEFAULT 0',
-  'ALTER TABLE reviews ADD COLUMN verified INTEGER NOT NULL DEFAULT 0'
+  'ALTER TABLE reviews ADD COLUMN verified INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE products ADD COLUMN dose_per_ha REAL NOT NULL DEFAULT 0',
+  'ALTER TABLE products ADD COLUMN pack_qty REAL NOT NULL DEFAULT 1'
 ]) { try { db.exec(stmt); } catch (_) {} }
 
 // Índice único parcial: o mesmo txHash on-chain não pode pagar dois pedidos.
