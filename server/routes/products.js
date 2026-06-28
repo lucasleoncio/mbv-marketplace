@@ -4,6 +4,7 @@ const fs = require('fs');
 const multer = require('multer');
 const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { DEMO_MODE } = require('../config');
 
 const router = express.Router();
 
@@ -125,10 +126,15 @@ router.post('/:id/reviews', requireAuth, (req, res) => {
   const rating = Math.min(5, Math.max(1, parseInt(req.body.rating) || 0));
   if (!rating) return res.status(400).json({ error: 'Informe uma nota de 1 a 5.' });
 
+  // Compra verificada: o usuário tem um pedido PAGO com este produto.
+  const bought = db.prepare(`SELECT 1 FROM orders o JOIN order_items oi ON oi.order_id = o.id
+    WHERE o.user_id = ? AND oi.product_id = ? AND o.payment_status = 'paid' LIMIT 1`).get(req.user.id, product.id);
+  if (!bought && !DEMO_MODE) return res.status(403).json({ error: 'Apenas quem comprou este produto pode avaliá-lo.' });
+
   db.prepare(`
-    INSERT INTO reviews (product_id, user_id, user_name, rating, comment) VALUES (?,?,?,?,?)
-    ON CONFLICT(product_id, user_id) DO UPDATE SET rating=excluded.rating, comment=excluded.comment, created_at=datetime('now')
-  `).run(product.id, req.user.id, req.user.name, rating, String(req.body.comment || '').slice(0, 600));
+    INSERT INTO reviews (product_id, user_id, user_name, rating, comment, verified) VALUES (?,?,?,?,?,?)
+    ON CONFLICT(product_id, user_id) DO UPDATE SET rating=excluded.rating, comment=excluded.comment, verified=excluded.verified, created_at=datetime('now')
+  `).run(product.id, req.user.id, req.user.name, rating, String(req.body.comment || '').slice(0, 600), bought ? 1 : 0);
 
   // Recalcula média do produto
   const agg = db.prepare('SELECT AVG(rating) avg, COUNT(*) n FROM reviews WHERE product_id = ?').get(product.id);

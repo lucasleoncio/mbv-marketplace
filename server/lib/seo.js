@@ -42,7 +42,7 @@ function productPage(id) {
     { q: 'Quais as formas de pagamento?', a: 'Cartão, Pix ou o token Neutrotan (NTR). Pagando em NTR você ganha 5% de desconto e cashback.' },
     { q: 'Qual o prazo e o valor do frete?', a: 'O frete é calculado pelo seu CEP no checkout. Em compras acima de R$ 500, o frete é grátis.' },
     { q: 'Posso trocar ou devolver?', a: 'Sim. Você tem até 7 dias corridos após o recebimento, conforme o Código de Defesa do Consumidor.' },
-    ...(p.co2 ? [{ q: 'Qual o impacto ambiental?', a: `Cada unidade evita cerca de ${p.co2} kg de CO₂ na sua operação.` }] : [])
+    ...(p.co2 ? [{ q: 'Qual o impacto ambiental?', a: `Estimamos uma redução de cerca de ${p.co2} kg de CO₂e por unidade em relação ao manejo convencional (estimativa — ver metodologia).` }] : [])
   ];
   const jsonld = ld({
     '@context': 'https://schema.org', '@type': 'Product',
@@ -66,7 +66,7 @@ function productPage(id) {
     <h1>${esc(p.name)}</h1>
     <p><strong>${money(p.price)}</strong>${p.unit && p.unit !== 'un' ? ' / ' + esc(p.pack_size || p.unit) : ''} — ${p.stock > 0 ? 'em estoque' : 'esgotado'}</p>
     <p>${esc(p.description || '')}</p>
-    <ul><li>Embalagem: ${esc(p.pack_size || '—')}</li><li>Unidade: ${esc(p.unit)}</li>${p.co2 ? `<li>CO₂ evitado: ${p.co2} kg por unidade</li>` : ''}</ul>
+    <ul><li>Embalagem: ${esc(p.pack_size || '—')}</li><li>Unidade: ${esc(p.unit)}</li>${p.co2 ? `<li>CO₂ evitado (estimativa): ~${p.co2} kg por unidade vs. manejo convencional</li>` : ''}</ul>
     <p>Pague com Cartão, Pix ou o token Neutrotan (NTR) na rede Polygon.</p>
     <h2>Perguntas frequentes</h2>
     <dl>${faq.map(f => `<dt><strong>${esc(f.q)}</strong></dt><dd>${esc(f.a)}</dd>`).join('')}</dl>

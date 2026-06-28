@@ -43,7 +43,7 @@ async function render() {
     if (r === 'carteira') return await Pages.wallet();
     if (r === 'favoritos') return await Pages.favorites();
     if (r === 'entrar') return await Pages.auth(query);
-    if (['sobre', 'contato', 'faq', 'privacidade', 'termos', 'trocas'].includes(r)) return Pages.page(r);
+    if (['sobre', 'contato', 'faq', 'privacidade', 'termos', 'trocas', 'metodologia-co2'].includes(r)) return Pages.page(r);
     if (r === 'transparencia') return Pages.transparencia();
     if (r === 'recuperar') return Pages.forgot();
     if (r === 'redefinir') return Pages.reset(query);
@@ -253,13 +253,22 @@ const STATIC_PAGES = {
   </div>` },
   privacidade: { crumb: 'Privacidade', html: `<div class="prose">
     <h1>Política de Privacidade</h1>
-    <p class="muted">Atualizado em junho de 2026 · Modelo inicial — recomendamos revisão por um advogado.</p>
-    <p>O Movimento Brasil Verde (CNPJ 54.224.102/0001-10) respeita a sua privacidade e cumpre a Lei Geral de Proteção de Dados (Lei 13.709/2018 — LGPD).</p>
-    <h2>Dados que coletamos</h2><p>Nome, e-mail, endereço de entrega e dados do pedido. Não armazenamos dados completos de cartão.</p>
-    <h2>Como usamos</h2><p>Para processar pedidos, entregar produtos, enviar comunicações sobre sua compra e cumprir obrigações legais.</p>
-    <h2>Compartilhamento</h2><p>Apenas com parceiros necessários (pagamento e entrega) e quando exigido por lei.</p>
-    <h2>Seus direitos</h2><p>Você pode acessar, corrigir ou excluir seus dados e revogar consentimento pelo e-mail contato@movimentobrasilverde.com.</p>
-    <h2>Cookies</h2><p>Usamos cookies para melhorar sua experiência. Você pode gerenciá-los no navegador.</p>
+    <p class="muted">Atualizado em junho de 2026 · Modelo — recomendamos validação jurídica antes do go-live.</p>
+    <p>O Movimento Brasil Verde (CNPJ 54.224.102/0001-10) cumpre a Lei Geral de Proteção de Dados (Lei 13.709/2018 — LGPD).</p>
+    <h2>Dados que coletamos</h2><p>Nome, e-mail, telefone, endereço de entrega, CPF/CNPJ (para nota fiscal e cupons) e, se você pagar com NTR, o endereço público da sua carteira. Não armazenamos dados completos de cartão.</p>
+    <h2>Como usamos</h2><p>Para processar e entregar pedidos, emitir documentos fiscais, prevenir fraudes, enviar comunicações sobre sua compra e cumprir obrigações legais.</p>
+    <h2>Operadores e terceiros</h2><p>Compartilhamos apenas o necessário com: <b>Mercado Pago</b> (pagamentos), <b>Resend</b> (envio de e-mails) e <b>Google Analytics</b> (métricas de uso, somente após seu consentimento de cookies). Pagamentos em NTR ocorrem na rede pública Polygon.</p>
+    <h2>Retenção</h2><p>Mantemos os dados pelo tempo necessário às finalidades acima e aos prazos legais (ex.: fiscais).</p>
+    <h2>Seus direitos</h2><p>Você pode acessar, corrigir, excluir ou portar seus dados e revogar consentimento pelo e-mail <b>contato@movimentobrasilverde.com</b> (encarregado/DPO).</p>
+    <h2>Cookies</h2><p>Cookies essenciais mantêm sua sessão e seu carrinho. Cookies de análise (Google Analytics) só são ativados se você aceitar no banner — você pode recusar e usar a loja normalmente.</p>
+  </div>` },
+  'metodologia-co2': { crumb: 'Metodologia de CO₂', html: `<div class="prose">
+    <span class="eyebrow">Transparência ambiental</span>
+    <h1>Como estimamos o CO₂ evitado</h1>
+    <p>O valor de "CO₂ evitado" exibido em alguns produtos é uma <b>estimativa comparativa</b> — quanto de CO₂ equivalente (CO₂e) o uso do insumo MBV tende a evitar <b>em relação ao manejo convencional</b> de referência. Não é uma medição da sua lavoura específica nem uma garantia de resultado.</p>
+    <h2>Base do cálculo</h2><p>As estimativas seguem fatores de emissão reconhecidos (ex.: GHG Protocol Agrícola e diretrizes do IPCC), aplicados por categoria de produto, considerando produção, transporte e uso. Onde não há base suficiente, o produto não exibe número.</p>
+    <h2>Premissas</h2><p>Os valores assumem condições típicas de cultura e a dosagem recomendada. Resultados reais variam conforme solo, clima, manejo e calibração de equipamentos.</p>
+    <h2>Melhoria contínua</h2><p>Estamos refinando a metodologia com dados de campo e auditoria independente. Dúvidas e sugestões: <b>contato@movimentobrasilverde.com</b>.</p>
   </div>` },
   termos: { crumb: 'Termos', html: `<div class="prose">
     <h1>Termos de Uso</h1>
@@ -435,7 +444,7 @@ Pages.product = async function (id) {
           <div class="item"><span>Embalagem</span><b>${escapeHtml(p.pack_size || '—')}</b></div>
           <div class="item"><span>Unidade</span><b>${escapeHtml(p.unit)}</b></div>
           <div class="item"><span>Disponível</span><b>${p.stock} ${escapeHtml(p.unit)}</b></div>
-          <div class="item"><span>CO₂ evitado</span><b>${p.co2 ? p.co2 + ' kg/un' : '—'}</b></div>
+          <div class="item"><span>CO₂ evitado (est.)</span><b>${p.co2 ? '~' + p.co2 + ' kg/un' : '—'}</b></div>
         </div>
 
         <div class="buy-row">
@@ -455,7 +464,7 @@ Pages.product = async function (id) {
           <div class="row"><input id="shipCep" inputmode="numeric" maxlength="9" placeholder="Digite seu CEP"><button class="btn btn-light" id="shipBtn">Calcular</button></div>
           <div id="shipResult" class="muted" style="font-size:13px;margin-top:8px"></div>
         </div>
-        ${p.co2 ? `<div class="eco-note"><div class="ic">${icon('leaf', 20)}</div><div><b>Impacto positivo</b><br><span class="muted" style="font-size:13.5px">Cada unidade evita cerca de ${p.co2} kg de CO₂ na sua operação.</span></div></div>` : ''}
+        ${p.co2 ? `<div class="eco-note"><div class="ic">${icon('leaf', 20)}</div><div><b>Impacto positivo (estimado)</b><br><span class="muted" style="font-size:13.5px">Estimativa de redução de ~${p.co2} kg de CO₂e por unidade vs. manejo convencional. <a href="/metodologia-co2" style="color:var(--green-700);font-weight:600">Ver metodologia</a></span></div></div>` : ''}
         <div class="desc">${escapeHtml(p.description || '')}</div>
       </div>
     </div>
@@ -519,13 +528,13 @@ function productFAQ(p) {
     { q: 'Quais as formas de pagamento?', a: 'Cartão, Pix ou o token Neutrotan (NTR). Pagando em NTR você ganha 5% de desconto e cashback.' },
     { q: 'Qual o prazo e o valor do frete?', a: 'O frete é calculado pelo seu CEP no checkout. Em compras acima de R$ 500, o frete é grátis.' },
     { q: 'Posso trocar ou devolver?', a: 'Sim. Você tem até 7 dias corridos após o recebimento para desistir, conforme o Código de Defesa do Consumidor.' },
-    ...(p.co2 ? [{ q: 'Qual o impacto ambiental?', a: `Cada unidade evita cerca de ${p.co2} kg de CO₂ na sua operação.` }] : []),
+    ...(p.co2 ? [{ q: 'Qual o impacto ambiental?', a: `Estimamos uma redução de cerca de ${p.co2} kg de CO₂e por unidade em relação ao manejo convencional. Veja a metodologia em /metodologia-co2.` }] : []),
     { q: 'Como descubro a dosagem ideal?', a: 'Nossa equipe técnica orienta dosagem e manejo pelo WhatsApp +55 48 9174-1610.' }
   ];
 }
 function reviewRow(r) {
   return `<div class="review" style="display:flex;gap:14px"><div class="avatar">${escapeHtml((r.user_name || 'U')[0].toUpperCase())}</div>
-    <div style="flex:1"><div style="display:flex;justify-content:space-between"><b>${escapeHtml(r.user_name || 'Cliente')}</b><span class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span></div>
+    <div style="flex:1"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>${escapeHtml(r.user_name || 'Cliente')}${r.verified ? ` <span class="badge-soft" style="font-size:10px;font-weight:700">${icon('check', 10)} Compra verificada</span>` : ''}</b><span class="stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span></div>
     <p class="muted" style="margin:4px 0 0;font-size:14px">${escapeHtml(r.comment || '')}</p></div></div>`;
 }
 
@@ -1374,12 +1383,17 @@ Admin.users = async function () {
 
 /* ======================= BOOT ======================= */
 function cookieBanner() {
-  if (localStorage.getItem('mbv_cookie_ok')) return;
+  if (localStorage.getItem('mbv_cookie_consent')) return;
   const el = document.createElement('div');
   el.className = 'cookie-bar';
-  el.innerHTML = `<span>🍪 Usamos cookies para melhorar sua experiência. Ao continuar, você concorda com nossa <a href="/privacidade">Política de Privacidade</a>.</span><button class="btn btn-primary btn-sm" id="ckok">Aceitar</button>`;
+  el.innerHTML = `<span>🍪 Usamos cookies essenciais (sessão e carrinho) e, com sua permissão, de análise. Veja a <a href="/privacidade">Política de Privacidade</a>.</span><span style="display:inline-flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" id="ckess">Só essenciais</button><button class="btn btn-primary btn-sm" id="ckok">Aceitar todos</button></span>`;
   document.body.appendChild(el);
-  el.querySelector('#ckok').addEventListener('click', () => { localStorage.setItem('mbv_cookie_ok', '1'); el.remove(); });
+  const close = (consent) => {
+    localStorage.setItem('mbv_cookie_consent', consent); el.remove();
+    if (consent === 'all' && Store.chain && Store.chain.gaId) injectGA(Store.chain.gaId);
+  };
+  el.querySelector('#ckok').addEventListener('click', () => close('all'));
+  el.querySelector('#ckess').addEventListener('click', () => close('essential'));
 }
 
 function injectGA(id) {
@@ -1405,7 +1419,7 @@ function setupErrorReporting() {
   await Store.init();
   renderHeader();
   renderFooter();
-  if (Store.chain && Store.chain.gaId) injectGA(Store.chain.gaId);
+  if (Store.chain && Store.chain.gaId && localStorage.getItem('mbv_cookie_consent') === 'all') injectGA(Store.chain.gaId);
   window.addEventListener('popstate', render);
   render();
   cookieBanner();
