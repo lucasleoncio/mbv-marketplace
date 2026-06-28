@@ -134,6 +134,7 @@ preflight();
 
 // Popula o banco na primeira execução, depois sobe o servidor.
 ensureSeed();
+require('./db').reindexSearch(); // índice de busca (sem acento) atualizado no boot
 app.listen(PORT, () => {
   console.log('\n  🌱  MBV Marketplace no ar!');
   console.log(`     →  http://localhost:${PORT}\n`);

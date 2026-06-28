@@ -5,6 +5,19 @@ const multer = require('multer');
 const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { DEMO_MODE } = require('../config');
+const { normalize } = require('../lib/text');
+
+// Sinônimos/termos agro para a busca encontrar pela intenção (já normalizados, sem acento).
+const SYNONYMS = {
+  placa: 'painel solar', placas: 'painel solar', solar: 'painel solar energia', energia: 'painel solar',
+  adubo: 'fertilizante', aduba: 'fertilizante', adubacao: 'fertilizante',
+  veneno: 'defensivo', pesticida: 'defensivo', agrotoxico: 'defensivo', praga: 'defensivo',
+  muda: 'mudas', semente: 'sementes',
+  npk: 'fertilizante foliar', ureia: 'fertilizante nitrogenio', nitrogenio: 'inoculante nitrogenio',
+  calcario: 'calcario correcao', calagem: 'calcario correcao',
+  agua: 'irrigacao', irrigacao: 'irrigacao gotejamento bomba', bomba: 'bomba irrigacao',
+  organico: 'organico', composto: 'composto organico', humus: 'humus minhoca'
+};
 
 const router = express.Router();
 
@@ -65,7 +78,17 @@ router.get('/', (req, res) => {
 
   const where = ['p.active = 1'];
   const params = {};
-  if (q) { where.push('(p.name LIKE @q OR p.description LIKE @q)'); params.q = `%${q}%`; }
+  if (q) {
+    const terms = new Set();
+    normalize(q).split(' ').filter(Boolean).forEach(w => {
+      terms.add(w);
+      if (SYNONYMS[w]) SYNONYMS[w].split(' ').forEach(t => terms.add(t));
+    });
+    const conds = [...terms].map((t, i) => { params['s' + i] = `%${t}%`; return `p.search_text LIKE @s${i}`; });
+    params.qraw = `%${q}%`;
+    conds.push('p.name LIKE @qraw', 'p.description LIKE @qraw'); // fallback (com acento)
+    where.push('(' + conds.join(' OR ') + ')');
+  }
   if (category) { where.push('c.slug = @cat'); params.cat = category; }
   if (min) { where.push('p.price >= @min'); params.min = Number(min); }
   if (max) { where.push('p.price <= @max'); params.max = Number(max); }

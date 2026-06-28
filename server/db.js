@@ -208,8 +208,22 @@ for (const stmt of [
   'ALTER TABLE coupons ADD COLUMN commission_pct REAL NOT NULL DEFAULT 0',
   'ALTER TABLE reviews ADD COLUMN verified INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE products ADD COLUMN dose_per_ha REAL NOT NULL DEFAULT 0',
-  'ALTER TABLE products ADD COLUMN pack_qty REAL NOT NULL DEFAULT 1'
+  'ALTER TABLE products ADD COLUMN pack_qty REAL NOT NULL DEFAULT 1',
+  'ALTER TABLE products ADD COLUMN search_text TEXT'
 ]) { try { db.exec(stmt); } catch (_) {} }
+
+// Recalcula o índice de busca normalizado (sem acento) de todos os produtos.
+db.reindexSearch = function () {
+  try {
+    const { normalize } = require('./lib/text');
+    const prods = db.prepare('SELECT id, name, description, badges FROM products').all();
+    const upd = db.prepare('UPDATE products SET search_text = ? WHERE id = ?');
+    for (const p of prods) {
+      let badges = ''; try { badges = (JSON.parse(p.badges || '[]') || []).join(' '); } catch (_) {}
+      upd.run(normalize(`${p.name} ${p.description || ''} ${badges}`), p.id);
+    }
+  } catch (e) { console.error('[reindex]', e.message); }
+};
 
 // Índice único parcial: o mesmo txHash on-chain não pode pagar dois pedidos.
 try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_tx_hash ON orders(tx_hash) WHERE tx_hash IS NOT NULL'); } catch (_) {}

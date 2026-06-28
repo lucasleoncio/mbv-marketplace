@@ -402,7 +402,10 @@ Pages.catalog = async function (query) {
         <div class="toolbar">
           <span class="count"><b>${data.total}</b> produto(s) encontrado(s)</span>
         </div>
-        ${data.items.length ? `<div class="product-grid cols-3">${data.items.map(productCard).join('')}</div>` : `<div class="empty"><div class="ic">${icon('search', 28)}</div><h3>Nenhum produto encontrado</h3><p class="muted">Tente ajustar os filtros ou a busca.</p></div>`}
+        ${data.items.length ? `<div class="product-grid cols-3">${data.items.map(productCard).join('')}</div>` : `<div class="empty"><div class="ic">${icon('search', 28)}</div><h3>Nada encontrado${params.q ? ` para "${escapeHtml(params.q)}"` : ''}</h3><p class="muted">Tente outro termo ou navegue pelas categorias.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:14px 0">${Store.categories.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}" class="chip" style="text-decoration:none">${escapeHtml(c.name.split(' ')[0])}</a>`).join('')}</div>
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><a href="/produtos" class="btn btn-ghost btn-sm">Ver todos</a><a href="https://wa.me/554891741610?text=${encodeURIComponent('Olá! Não achei no site: ' + (params.q || ''))}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Não achou? Fale no WhatsApp</a></div>
+        </div>`}
         ${data.pages > 1 ? `<div class="pagination">${Array.from({ length: data.pages }, (_, i) => i + 1).map(n => `<button class="${n == params.page ? 'active' : ''}" data-page="${n}">${n}</button>`).join('')}</div>` : ''}
       </div>
     </div>
