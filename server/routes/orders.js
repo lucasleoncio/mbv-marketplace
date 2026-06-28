@@ -226,6 +226,13 @@ router.patch('/:id/status', requireAdmin, (req, res) => {
     tx();
   } else {
     db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(req.body.status, order.id);
+    // E-mails de ciclo de vida: avisa quando o pedido é enviado/entregue.
+    if ((req.body.status === 'shipped' || req.body.status === 'delivered') && order.status !== req.body.status) {
+      const u = db.prepare('SELECT * FROM users WHERE id = ?').get(order.user_id);
+      const full = orderWithItems(order.id);
+      if (req.body.status === 'shipped') email.sendOrderShipped(u, full).catch(() => {});
+      else email.sendOrderDelivered(u, full).catch(() => {});
+    }
   }
   res.json({ order: orderWithItems(order.id) });
 });

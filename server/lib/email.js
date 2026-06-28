@@ -66,4 +66,18 @@ async function sendVerification(user, link) {
   return send(user.email, 'Confirme seu e-mail — MBV', layout('Bem-vindo ao MBV 🌱', body));
 }
 
-module.exports = { send, sendOrderConfirmation, sendPasswordReset, sendVerification };
+async function sendOrderShipped(user, order) {
+  const body = `<p>Olá, ${esc((user.name || '').split(' ')[0])}! Boas notícias: o seu pedido <b>${esc(order.code)}</b> foi <b>enviado</b> e está a caminho de ${esc(order.ship_city)}/${esc(order.ship_state)}. 🚚</p>
+    <p style="margin-top:18px"><a href="${APP_URL}/pedido/${order.id}" style="background:#1f6e47;color:#fff;text-decoration:none;padding:11px 20px;border-radius:999px;font-weight:600">Acompanhar pedido</a></p>`;
+  return send(user.email, `Seu pedido ${order.code} foi enviado — MBV`, layout('Pedido a caminho 🚚', body));
+}
+
+async function sendOrderDelivered(user, order) {
+  const first = (order.items && order.items[0]) ? order.items[0].product_id : '';
+  const body = `<p>Olá, ${esc((user.name || '').split(' ')[0])}! Seu pedido <b>${esc(order.code)}</b> foi marcado como <b>entregue</b>. Esperamos que goste! 🌱</p>
+    <p>Que tal avaliar o que você recebeu? Sua opinião ajuda outros produtores — e quem comprou ganha o selo de <b>compra verificada</b>.</p>
+    <p style="margin-top:18px"><a href="${APP_URL}/produto/${first}" style="background:#1f6e47;color:#fff;text-decoration:none;padding:11px 20px;border-radius:999px;font-weight:600">Avaliar produto</a></p>`;
+  return send(user.email, `Seu pedido ${order.code} foi entregue — avalie e ajude 🌱`, layout('Pedido entregue!', body));
+}
+
+module.exports = { send, sendOrderConfirmation, sendPasswordReset, sendVerification, sendOrderShipped, sendOrderDelivered };

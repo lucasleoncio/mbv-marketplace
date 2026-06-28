@@ -428,7 +428,7 @@ Pages.product = async function (id) {
       <div>
         <span class="cat" style="color:var(--green-700);font-weight:600">${escapeHtml(p.category_name)}</span>
         <h1>${escapeHtml(p.name)}</h1>
-        <div class="rating">${stars(p.rating, p.rating_count)} ${p.stock > 0 ? `<span class="chip" style="margin-left:8px">${icon('check', 13)} Em estoque</span>` : `<span class="pill pill-cancelled">Esgotado</span>`}</div>
+        <div class="rating">${stars(p.rating, p.rating_count)} ${p.stock <= 0 ? `<span class="pill pill-cancelled">Esgotado</span>` : p.stock <= 8 ? `<span class="chip" style="margin-left:8px;background:#fbe7e1;color:#c0492f">${icon('spark', 13)} Últimas ${p.stock} unidades</span>` : `<span class="chip" style="margin-left:8px">${icon('check', 13)} Em estoque</span>`}</div>
         <div class="badges" style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0">${(p.badges || []).map(b => `<span class="badge-soft">${icon('leaf', 12)} ${escapeHtml(b)}</span>`).join('')}</div>
         <div class="price-block">
           ${off ? `<span class="price-old" style="font-size:17px">${money(p.compare_at_price)}</span>` : ''}
@@ -439,6 +439,7 @@ Pages.product = async function (id) {
           <div class="opt"><span>Cartão ou Pix</span><b>${money(p.price)}</b></div>
           <div class="opt best"><span>${iconFill('coin', 13)} Pagando em NTR <em>−5%</em></span><b>${money(p.price * 0.95)}</b><small>${ntr(p.price)} · você economiza ${money(p.price * 0.05)}</small></div>
         </div>
+        ${UI.installment(p.price) ? `<div class="muted" style="font-size:13px;margin-top:8px">${iconFill('card', 13)} ou até <b>${UI.installment(p.price)}</b> no cartão</div>` : ''}
 
         <div class="spec">
           <div class="item"><span>Embalagem</span><b>${escapeHtml(p.pack_size || '—')}</b></div>

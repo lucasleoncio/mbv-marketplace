@@ -47,6 +47,12 @@ const UI = (function () {
   const mbv = (n) => (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('pt-BR') + ' NTR';
   // Converte um preço em R$ para NTR usando a cotação atual (Store.rate, padrão R$ 9,36).
   const ntr = (brlValue) => mbv((Number(brlValue) || 0) / ((window.Store && Store.rate) ? Store.rate : 9.36));
+  // Parcelamento no cartão: maior nº de parcelas mantendo um valor mínimo por parcela.
+  function installment(price) {
+    const p = Number(price) || 0, MAXN = 12, MINP = 10;
+    let n = MAXN; while (n > 1 && p / n < MINP) n--;
+    return n > 1 ? `${n}x de ${money(p / n)}` : '';
+  }
   function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
   function stars(rating, count) {
@@ -115,11 +121,13 @@ const UI = (function () {
         <a href="/produto/${p.id}/${p.slug || ''}" class="title">${escapeHtml(p.name)}</a>
         <div class="badges">${badges}</div>
         <div class="rating">${stars(p.rating, p.rating_count)}</div>
+        ${p.stock > 0 && p.stock <= 8 ? `<div class="lowstock">${icon('spark', 11)} Últimas ${p.stock} unidades</div>` : ''}
         <div class="price-row">
           <div>
             ${off ? `<div class="price-old">${money(p.compare_at_price)}</div>` : ''}
             <div class="price">${money(p.price)} ${p.unit && p.unit !== 'un' ? `<small>/ ${escapeHtml(p.pack_size || p.unit)}</small>` : ''}</div>
             <div class="price-mbv">${UI.iconFill('coin', 12)} ${money(p.price * 0.95)} em NTR · <b>−5%</b></div>
+            ${installment(p.price) ? `<div class="installment">ou até ${installment(p.price)} no cartão</div>` : ''}
           </div>
           <button class="add" data-add="${p.id}" title="Adicionar ao carrinho">${icon('plus', 20)}</button>
         </div>
@@ -165,5 +173,5 @@ const UI = (function () {
     return `<span class="pill pill-${s}">${map[s] || s}</span>`;
   }
 
-  return { icon, iconFill, money, mbv, ntr, escapeHtml, stars, productImage, imgFallback, genImage, productCard, toast, openModal, closeModal, statusPill, I };
+  return { icon, iconFill, money, mbv, ntr, installment, escapeHtml, stars, productImage, imgFallback, genImage, productCard, toast, openModal, closeModal, statusPill, I };
 })();
