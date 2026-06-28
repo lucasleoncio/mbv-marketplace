@@ -209,7 +209,9 @@ for (const stmt of [
   'ALTER TABLE reviews ADD COLUMN verified INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE products ADD COLUMN dose_per_ha REAL NOT NULL DEFAULT 0',
   'ALTER TABLE products ADD COLUMN pack_qty REAL NOT NULL DEFAULT 1',
-  'ALTER TABLE products ADD COLUMN search_text TEXT'
+  'ALTER TABLE products ADD COLUMN search_text TEXT',
+  'ALTER TABLE cart_items ADD COLUMN created_at TEXT',
+  'ALTER TABLE cart_items ADD COLUMN notified INTEGER NOT NULL DEFAULT 0'
 ]) { try { db.exec(stmt); } catch (_) {} }
 
 // Recalcula o índice de busca normalizado (sem acento) de todos os produtos.

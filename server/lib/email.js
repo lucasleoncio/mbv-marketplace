@@ -80,4 +80,15 @@ async function sendOrderDelivered(user, order) {
   return send(user.email, `Seu pedido ${order.code} foi entregue — avalie e ajude 🌱`, layout('Pedido entregue!', body));
 }
 
-module.exports = { send, sendOrderConfirmation, sendPasswordReset, sendVerification, sendOrderShipped, sendOrderDelivered };
+async function sendAbandonedCart(user, items) {
+  const list = (items || []).map(it =>
+    `<tr><td style="padding:6px 0">${esc(it.name)} <span style="color:#5d6f64">× ${it.quantity}</span></td><td style="padding:6px 0;text-align:right">${money(it.price * it.quantity)}</td></tr>`
+  ).join('');
+  const body = `<p>Olá, ${esc((user.name || '').split(' ')[0])}! Você deixou itens no carrinho do MBV — guardamos para você. 🌱</p>
+    <table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:14px">${list}</table>
+    <p>Pagando com <b>Neutrotan (NTR)</b> você ganha <b>5% de desconto + cashback</b>.</p>
+    <p style="margin-top:18px"><a href="${APP_URL}/carrinho" style="background:#1f6e47;color:#fff;text-decoration:none;padding:11px 20px;border-radius:999px;font-weight:600">Voltar ao carrinho</a></p>`;
+  return send(user.email, 'Seu carrinho está esperando 🌱 — MBV', layout('Você esqueceu algo no carrinho', body));
+}
+
+module.exports = { send, sendOrderConfirmation, sendPasswordReset, sendVerification, sendOrderShipped, sendOrderDelivered, sendAbandonedCart };

@@ -26,8 +26,8 @@ router.post('/', (req, res) => {
   if (newQty <= 0) return res.status(400).json({ error: 'Produto sem estoque.' });
 
   db.prepare(`
-    INSERT INTO cart_items (user_id, product_id, quantity) VALUES (?,?,?)
-    ON CONFLICT(user_id, product_id) DO UPDATE SET quantity = ?
+    INSERT INTO cart_items (user_id, product_id, quantity, created_at, notified) VALUES (?,?,?,datetime('now'),0)
+    ON CONFLICT(user_id, product_id) DO UPDATE SET quantity = ?, notified = 0
   `).run(req.user.id, productId, newQty, newQty);
 
   const items = getCartItems(req.user.id);

@@ -57,6 +57,7 @@ app.use('/api/orders', require('./routes/orders'));
 app.use('/api/wallet', require('./routes/wallet'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/webhooks', require('./routes/webhooks'));
+app.use('/api/jobs', require('./routes/jobs'));
 
 app.get('/api/health', (_req, res) => {
   let dbUp = true;
@@ -64,10 +65,16 @@ app.get('/api/health', (_req, res) => {
   res.status(dbUp ? 200 : 503).json({ ok: dbUp, db: dbUp ? 'up' : 'down', service: 'MBV Marketplace', demo: DEMO_MODE });
 });
 app.get('/api/chain', (_req, res) => {
-  const cfg = require('./lib/chain').publicConfig();
-  cfg.mpEnabled = require('./config').MP.enabled;
-  cfg.gaId = require('./config').GA_ID;
-  res.json(cfg);
+  const pub = require('./lib/chain').publicConfig();
+  const C = require('./config');
+  pub.mpEnabled = C.MP.enabled;
+  pub.gaId = C.GA_ID;
+  // Flags de prontidão para go-live (apenas booleanos — nenhum segredo é exposto).
+  pub.demo = C.DEMO_MODE;
+  pub.emailEnabled = !!C.EMAIL.resendKey;
+  pub.persistent = !!(process.env.MBV_DATA_DIR || process.env.DATABASE_URL);
+  pub.jobsReady = !!C.JOBS_SECRET;
+  res.json(pub);
 });
 // Estimativa de frete e prazo por CEP (usado na página do produto e no carrinho).
 app.get('/api/shipping', (req, res) => {
@@ -95,7 +102,7 @@ app.get('/sitemap.xml', (_req, res) => {
   const urls = [APP_URL + '/', APP_URL + '/produtos',
     ...cats.map(c => `${APP_URL}/produtos?cat=${c.slug}`),
     ...prods.map(p => `${APP_URL}/produto/${p.id}/${p.slug || ''}`),
-    ...['sobre', 'faq', 'contato', 'termos', 'privacidade', 'trocas'].map(s => `${APP_URL}/${s}`)];
+    ...['sobre', 'faq', 'contato', 'termos', 'privacidade', 'trocas', 'transparencia', 'afiliados', 'metodologia-co2'].map(s => `${APP_URL}/${s}`)];
   res.type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
     urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') + '\n</urlset>');
 });

@@ -24,6 +24,9 @@ module.exports = {
   // Observabilidade opcional (defina o DSN para ativar no futuro).
   SENTRY_DSN: process.env.SENTRY_DSN || '',
 
+  // Chave para os endpoints de jobs (ex.: carrinho abandonado), chamados por cron externo.
+  JOBS_SECRET: process.env.JOBS_SECRET || '',
+
   // --- Economia do token Neutrotan (NTR) — utility token do MBV ---
   // Token: "Neutrotan" (NTR) — ERC-20 na rede Polygon, com lastro real no "cote".
   TOKEN: {

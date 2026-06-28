@@ -22,6 +22,24 @@ function buildQuery(obj) {
   return q ? '?' + q : '';
 }
 function mount(html) { app.innerHTML = html; window.scrollTo(0, 0); }
+function recentIds() { try { return JSON.parse(localStorage.getItem('mbv_recent') || '[]'); } catch { return []; } }
+function trackRecent(id) { try { id = Number(id); const r = recentIds().filter(x => x !== id); r.unshift(id); localStorage.setItem('mbv_recent', JSON.stringify(r.slice(0, 12))); } catch (_) {} }
+async function downloadCsv(path, filename) {
+  try {
+    const res = await fetch('/api' + path, { headers: { Authorization: 'Bearer ' + API.getToken() } });
+    if (!res.ok) throw new Error('Falha ao exportar.');
+    const blob = await res.blob(); const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e) { toast('Ops', e.message, 'err'); }
+}
+function compareIds() { try { return JSON.parse(localStorage.getItem('mbv_compare') || '[]'); } catch { return []; } }
+function toggleCompare(id) {
+  id = Number(id); const cur = compareIds();
+  const a = cur.includes(id) ? cur.filter(x => x !== id) : [id, ...cur].slice(0, 4);
+  try { localStorage.setItem('mbv_compare', JSON.stringify(a)); } catch (_) {}
+  return a.includes(id);
+}
 function loading() {
   const cards = Array.from({ length: 8 }).map(() => `<div class="skel-card"><div class="skel skel-img"></div><div class="skel skel-line"></div><div class="skel skel-line short"></div></div>`).join('');
   mount(`<div class="container"><div class="skel skel-hero"></div><div class="product-grid" style="margin-top:24px">${cards}</div><p class="muted center" id="coldHint" style="margin-top:18px;opacity:0;transition:opacity .4s">Preparando a loja… na primeira visita pode levar alguns segundos.</p></div>`);
@@ -43,8 +61,9 @@ async function render() {
     if (r === 'carteira') return await Pages.wallet();
     if (r === 'favoritos') return await Pages.favorites();
     if (r === 'entrar') return await Pages.auth(query);
-    if (['sobre', 'contato', 'faq', 'privacidade', 'termos', 'trocas', 'metodologia-co2'].includes(r)) return Pages.page(r);
+    if (['sobre', 'contato', 'faq', 'privacidade', 'termos', 'trocas', 'metodologia-co2', 'afiliados'].includes(r)) return Pages.page(r);
     if (r === 'transparencia') return Pages.transparencia();
+    if (r === 'comparar') return await Pages.compare();
     if (r === 'recuperar') return Pages.forgot();
     if (r === 'redefinir') return Pages.reset(query);
     if (r === 'verificar') return await Pages.verify(query);
@@ -188,6 +207,33 @@ const Pages = {};
 Pages.notFound = () => mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('search', 30)}</div><h2>Página não encontrada</h2><p class="muted">O endereço acessado não existe.</p><a href="/" class="btn btn-primary" style="margin-top:14px">Voltar à loja</a></div></div>`);
 Pages.error = (e) => mount(`<div class="container"><div class="empty" style="margin:60px 0"><div class="ic">${icon('shield', 30)}</div><h2>Algo deu errado</h2><p class="muted">${escapeHtml((e && e.message) || 'Não foi possível carregar esta página.')}</p><button class="btn btn-primary" style="margin-top:14px" onclick="location.reload()">Tentar novamente</button></div></div>`);
 
+Pages.compare = async function () {
+  loading();
+  const ids = compareIds();
+  if (!ids.length) return mount(`<div class="container"><div class="empty" style="margin:50px 0"><div class="ic">${icon('grid', 30)}</div><h2>Nada para comparar</h2><p class="muted">Adicione produtos ao comparador pela página do produto.</p><a href="/produtos" class="btn btn-primary" style="margin-top:14px">Ver produtos</a></div></div>`);
+  const { items } = await API.get('/products/by-ids?ids=' + ids.join(','));
+  const prods = ids.map(i => items.find(p => p.id === i)).filter(Boolean);
+  if (!prods.length) return mount(`<div class="container"><div class="empty" style="margin:50px 0"><div class="ic">${icon('grid', 30)}</div><h2>Nada para comparar</h2><a href="/produtos" class="btn btn-primary" style="margin-top:14px">Ver produtos</a></div></div>`);
+  const rows = [
+    ['Preço', p => money(p.price)],
+    ['Em NTR (−5%)', p => money(p.price * 0.95)],
+    ['Embalagem', p => escapeHtml(p.pack_size || '—')],
+    ['Dose por hectare', p => p.dose_per_ha ? p.dose_per_ha + ' ' + escapeHtml(p.unit) + '/ha' : '—'],
+    ['CO₂ evitado (est.)', p => p.co2 ? '~' + p.co2 + ' kg/un' : '—'],
+    ['Avaliação', p => (p.rating || 0) + '★ (' + (p.rating_count || 0) + ')'],
+    ['Selos', p => (p.badges || []).join(', ') || '—']
+  ];
+  mount(`<div class="container">
+    <div class="breadcrumb"><a href="/">Início</a> ${icon('arrow', 13)} <span>Comparar</span></div>
+    <h1 style="margin:10px 0 18px;font-size:27px">Comparar produtos</h1>
+    <div class="table-wrap"><table class="cmp-table"><thead><tr><th></th>${prods.map(p => `<th><a href="/produto/${p.id}/${p.slug || ''}"><img src="${productImage(p)}" onerror="${UI.imgFallback(p)}" style="width:84px;height:84px;object-fit:cover;border-radius:10px"><div style="font-size:13px;font-weight:600;margin-top:6px">${escapeHtml(p.name)}</div></a><br><button class="btn btn-ghost btn-sm" data-cmprm="${p.id}" style="margin-top:6px;color:var(--danger)">Remover</button></th>`).join('')}</tr></thead>
+    <tbody>${rows.map(([label, fn]) => `<tr><td><b>${label}</b></td>${prods.map(p => `<td>${fn(p)}</td>`).join('')}</tr>`).join('')}
+    <tr><td></td>${prods.map(p => `<td><button class="btn btn-primary btn-sm" data-add="${p.id}">Adicionar</button></td>`).join('')}</tr>
+    </tbody></table></div>
+  </div>`);
+  app.querySelectorAll('[data-cmprm]').forEach(b => b.addEventListener('click', () => { toggleCompare(Number(b.dataset.cmprm)); Pages.compare(); }));
+};
+
 Pages.transparencia = function () {
   const c = Store.chain || {}; const tok = c.token || {};
   const ex = c.explorer || 'https://polygonscan.com';
@@ -261,6 +307,15 @@ const STATIC_PAGES = {
     <h2>Retenção</h2><p>Mantemos os dados pelo tempo necessário às finalidades acima e aos prazos legais (ex.: fiscais).</p>
     <h2>Seus direitos</h2><p>Você pode acessar, corrigir, excluir ou portar seus dados e revogar consentimento pelo e-mail <b>contato@movimentobrasilverde.com</b> (encarregado/DPO).</p>
     <h2>Cookies</h2><p>Cookies essenciais mantêm sua sessão e seu carrinho. Cookies de análise (Google Analytics) só são ativados se você aceitar no banner — você pode recusar e usar a loja normalmente.</p>
+  </div>` },
+  afiliados: { crumb: 'Programa de Afiliados', html: `<div class="prose">
+    <span class="eyebrow">Indique e ganhe</span>
+    <h1>Programa de Afiliados MBV</h1>
+    <p>Revendas, agrônomos e produtores parceiros podem indicar a loja e receber comissão sobre as vendas geradas pelo seu cupom.</p>
+    <h2>Como funciona</h2>
+    <p>1) Você recebe um <b>cupom exclusivo</b> da MBV. 2) Compartilhe seu link no formato <code>/produtos?ref=SEUCUPOM</code> — ao abrir, o cupom é aplicado automaticamente no carrinho do cliente. 3) A MBV acompanha as vendas e a comissão atribuídas ao seu cupom.</p>
+    <h2>Quero ser afiliado</h2>
+    <p>Fale com a gente pelo WhatsApp <b>+55 48 9174-1610</b> ou pelo e-mail <b>contato@movimentobrasilverde.com</b> para receber seu cupom e as condições de comissão.</p>
   </div>` },
   'metodologia-co2': { crumb: 'Metodologia de CO₂', html: `<div class="prose">
     <span class="eyebrow">Transparência ambiental</span>
@@ -373,7 +428,18 @@ Pages.home = async function () {
       <div class="section-head"><div><span class="eyebrow">Acabou de chegar</span><h2>Novidades</h2></div></div>
       <div class="product-grid">${recent.map(productCard).join('')}</div>
     </section>
+    <section class="section" id="recentlyViewed"></section>
   </div>`);
+  try {
+    const ids = recentIds();
+    if (ids.length) {
+      const { items } = await API.get('/products/by-ids?ids=' + ids.join(','));
+      const byId = {}; items.forEach(p => { byId[p.id] = p; });
+      const ordered = ids.map(i => byId[i]).filter(Boolean).slice(0, 4);
+      const el = document.getElementById('recentlyViewed');
+      if (el && ordered.length) el.innerHTML = `<div class="section-head"><div><span class="eyebrow">Você viu</span><h2>Vistos recentemente</h2></div></div><div class="product-grid">${ordered.map(productCard).join('')}</div>`;
+    }
+  } catch (_) {}
 };
 
 /* ---------- CATALOG ---------- */
@@ -384,6 +450,12 @@ Pages.catalog = async function (query) {
   const data = await API.get('/products' + apiQ);
   const cats = Store.categories;
   const curCat = cats.find(c => c.slug === params.cat);
+  const chips = [];
+  if (params.cat && curCat) chips.push(`<button class="fchip" data-clear="cat">${escapeHtml(curCat.name)} ✕</button>`);
+  if (params.q) chips.push(`<button class="fchip" data-clear="q">"${escapeHtml(params.q)}" ✕</button>`);
+  if (params.min || params.max) chips.push(`<button class="fchip" data-clear="price">Preço ✕</button>`);
+  if (params.sort) chips.push(`<button class="fchip" data-clear="sort">Ordenação ✕</button>`);
+  const chipsHtml = chips.length ? `<div class="fchips">${chips.join('')}<button class="fchip clear" data-clear="all">Limpar tudo</button></div>` : '';
 
   mount(`<div class="container">
     <div class="breadcrumb"><a href="/">Início</a> ${icon('arrow', 13)} <span>${curCat ? escapeHtml(curCat.name) : params.q ? 'Busca: ' + escapeHtml(params.q) : 'Todos os produtos'}</span></div>
@@ -401,7 +473,9 @@ Pages.catalog = async function (query) {
       <div>
         <div class="toolbar">
           <span class="count"><b>${data.total}</b> produto(s) encontrado(s)</span>
+          <button class="btn btn-light btn-sm filters-toggle" id="filtersToggle">${icon('grid', 15)} Filtros</button>
         </div>
+        ${chipsHtml}
         ${data.items.length ? `<div class="product-grid cols-3">${data.items.map(productCard).join('')}</div>` : `<div class="empty"><div class="ic">${icon('search', 28)}</div><h3>Nada encontrado${params.q ? ` para "${escapeHtml(params.q)}"` : ''}</h3><p class="muted">Tente outro termo ou navegue pelas categorias.</p>
           <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:14px 0">${Store.categories.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}" class="chip" style="text-decoration:none">${escapeHtml(c.name.split(' ')[0])}</a>`).join('')}</div>
           <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><a href="/produtos" class="btn btn-ghost btn-sm">Ver todos</a><a href="https://wa.me/554891741610?text=${encodeURIComponent('Olá! Não achei no site: ' + (params.q || ''))}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Não achou? Fale no WhatsApp</a></div>
@@ -415,6 +489,14 @@ Pages.catalog = async function (query) {
   app.querySelectorAll('input[name=cat]').forEach(r => r.addEventListener('change', () => update({ cat: r.value, page: 1 })));
   app.querySelectorAll('input[name=sort]').forEach(r => r.addEventListener('change', () => update({ sort: r.value, page: 1 })));
   app.querySelector('#applyPrice').addEventListener('click', () => update({ min: app.querySelector('#fMin').value, max: app.querySelector('#fMax').value, page: 1 }));
+  const ft = app.querySelector('#filtersToggle');
+  if (ft) ft.addEventListener('click', () => app.querySelector('.filters').classList.toggle('open'));
+  app.querySelectorAll('[data-clear]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.clear;
+    if (k === 'all') return go('/produtos');
+    if (k === 'price') return update({ min: '', max: '', page: 1 });
+    update({ [k]: '', page: 1 });
+  }));
   app.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', () => update({ page: b.dataset.page })));
 };
 
@@ -424,6 +506,7 @@ Pages.product = async function (id) {
   const { product: p, reviews, related } = await API.get('/products/' + id);
   const off = p.compare_at_price && p.compare_at_price > p.price ? Math.round((1 - p.price / p.compare_at_price) * 100) : 0;
   const fav = Store.favorites.has(p.id);
+  trackRecent(p.id);
   mount(`<div class="container">
     <div class="breadcrumb"><a href="/">Início</a> ${icon('arrow', 13)} <a href="/produtos${buildQuery({ cat: p.category_slug })}">${escapeHtml(p.category_name)}</a> ${icon('arrow', 13)} <span>${escapeHtml(p.name)}</span></div>
     <div class="pdp">
@@ -457,6 +540,7 @@ Pages.product = async function (id) {
           <button class="btn btn-dark btn-lg" id="buyBtn" ${p.stock <= 0 ? 'disabled' : ''}>Comprar agora</button>
           <button class="btn btn-ghost btn-lg fav ${fav ? 'on' : ''}" data-fav="${p.id}" style="${fav ? 'color:var(--danger)' : ''}">${iconFill('heart', 18)}</button>
         </div>
+        <div class="cmp-row"><button class="btn btn-ghost btn-sm" id="cmpBtn"></button><a href="/comparar" class="btn btn-ghost btn-sm" id="cmpLink" style="display:none"></a></div>
         <div class="trust-row">
           <div><div class="ic">${icon('shield', 18)}</div><span>Compra<br>protegida</span></div>
           <div><div class="ic">${icon('truck', 18)}</div><span>Entrega<br>todo o Brasil</span></div>
@@ -505,6 +589,13 @@ Pages.product = async function (id) {
   }));
   app.querySelector('#addBtn').addEventListener('click', () => addToCart(p.id, parseInt(qtyEl.value) || 1));
   app.querySelector('#buyBtn').addEventListener('click', async () => { await addToCart(p.id, parseInt(qtyEl.value) || 1); go('/checkout'); });
+  const refreshCmp = () => {
+    const ids = compareIds(); const cb = app.querySelector('#cmpBtn'), lk = app.querySelector('#cmpLink');
+    if (cb) cb.innerHTML = `${icon('grid', 14)} ${ids.includes(p.id) ? 'No comparador ✓' : 'Comparar'}`;
+    if (lk) { lk.style.display = ids.length ? 'inline-flex' : 'none'; lk.innerHTML = `Ver comparador (${ids.length})`; }
+  };
+  app.querySelector('#cmpBtn').addEventListener('click', () => { toggleCompare(p.id); refreshCmp(); });
+  refreshCmp();
   const shipBtn = app.querySelector('#shipBtn');
   if (shipBtn) {
     const cepEl = app.querySelector('#shipCep'); const out = app.querySelector('#shipResult');
@@ -594,9 +685,17 @@ Pages.cart = async function () {
       <div id="cartLines">${data.items.map(cartLine).join('')}</div>
       ${data.guest ? guestSummary(data.subtotal) : summaryBox(data.totals, 'carrinho')}
     </div>
+    <section class="section" id="crossSell" style="margin-top:30px"></section>
   </div>`);
   wireCartLines();
   if (!data.guest) wireSummary('carrinho');
+  try {
+    const cartIds = new Set(data.items.map(i => i.product_id));
+    const { items: recs } = await API.get('/products?sort=rating&limit=8');
+    const list = recs.filter(p => !cartIds.has(p.id)).slice(0, 4);
+    const cs = app.querySelector('#crossSell');
+    if (cs && list.length) cs.innerHTML = `<div class="section-head"><h2 style="font-size:20px">Complete seu manejo</h2></div><div class="product-grid">${list.map(productCard).join('')}</div>`;
+  } catch (_) {}
 };
 function guestSummary(subtotal) {
   return `<div class="summary" id="summaryBox">
@@ -1201,6 +1300,7 @@ Admin.dashboard = async function () {
   loading();
   const s = await API.get('/admin/stats');
   const maxDay = Math.max(1, ...s.salesByDay.map(d => d.total));
+  const c = Store.chain || {};
   mount(adminShell('dashboard', `
     <div class="panel-head"><h1>Visão geral</h1><span class="muted">Atualizado agora</span></div>
     <div class="stat-grid">
@@ -1229,9 +1329,22 @@ Admin.dashboard = async function () {
         <div class="panel"><h3 style="color:${s.lowStock.length ? 'var(--warn)' : 'inherit'}">${icon('box', 18)} Estoque baixo</h3>
           ${s.lowStock.length ? s.lowStock.map(p => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)"><span style="font-size:13.5px">${escapeHtml(p.name)}</span><b style="color:var(--danger)">${p.stock} ${escapeHtml(p.unit)}</b></div>`).join('') : '<p class="muted">Tudo abastecido ✓</p>'}
         </div>
+        <div class="panel"><h3>${icon('shield', 18)} Prontidão para go-live</h3>
+          ${goliveRow('Modo', !c.demo, c.demo ? 'Demonstração' : 'Produção')}
+          ${goliveRow('Mercado Pago (cartão/Pix)', c.mpEnabled)}
+          ${goliveRow('E-mail (Resend)', c.emailEnabled)}
+          ${goliveRow('Google Analytics', !!c.gaId)}
+          ${goliveRow('Pagamento NTR on-chain', c.enabled)}
+          ${goliveRow('Dados persistentes', c.persistent)}
+          ${goliveRow('Carrinho abandonado (cron)', c.jobsReady)}
+          <p class="muted" style="font-size:11.5px;margin-top:8px">Configure no Render → Environment. Passo a passo no GO-LIVE.md.</p>
+        </div>
       </div>
     </div>`));
 };
+function goliveRow(label, ok, note) {
+  return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)"><span style="font-size:13px">${escapeHtml(label)}</span><b style="font-size:12px;color:${ok ? 'var(--green-700)' : 'var(--muted)'}">${ok ? '✓ ' + (note || 'Conectado') : '• ' + (note || 'Pendente')}</b></div>`;
+}
 function payIcon(m) { return m === 'pix' ? icon('pix', 14) : m === 'mbv' ? iconFill('coin', 14) : icon('card', 14); }
 
 Admin.products = async function () {
@@ -1322,24 +1435,43 @@ Admin.productForm = async function (id) {
 Admin.orders = async function () {
   loading();
   const { orders } = await API.get('/orders?all=1');
-  mount(adminShell('pedidos', `
-    <div class="panel-head"><h1>Pedidos</h1><span class="muted">${orders.length} no total</span></div>
-    <div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th>Total</th><th>Pgto</th><th>Status</th></tr></thead><tbody>
-      ${orders.map(o => `<tr>
+  const stLabel = { processing: 'Em processamento', shipped: 'Enviado', delivered: 'Entregue', cancelled: 'Cancelado' };
+  const tableHtml = (list) => `<div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th>Total</th><th>Pgto</th><th>Status</th></tr></thead><tbody>
+      ${list.map(o => `<tr>
         <td><a href="/pedido/${o.id}"><b>${escapeHtml(o.code)}</b></a></td>
         <td>${escapeHtml(o.customer_name || '')}<div class="muted" style="font-size:12px">${escapeHtml(o.customer_email || '')}</div></td>
         <td>${new Date(o.created_at + 'Z').toLocaleDateString('pt-BR')}</td>
         <td><b>${money(o.total)}</b></td>
         <td>${payIcon(o.payment_method)} ${statusPill(o.payment_status)}</td>
         <td><select class="select" data-ostatus="${o.id}" style="padding:7px 10px">
-          ${['processing', 'shipped', 'delivered', 'cancelled'].map(s => `<option value="${s}" ${o.status === s ? 'selected' : ''}>${({ processing: 'Em processamento', shipped: 'Enviado', delivered: 'Entregue', cancelled: 'Cancelado' })[s]}</option>`).join('')}
+          ${['processing', 'shipped', 'delivered', 'cancelled'].map(s => `<option value="${s}" ${o.status === s ? 'selected' : ''}>${stLabel[s]}</option>`).join('')}
         </select></td>
-      </tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhum pedido ainda.</td></tr>'}
-    </tbody></table></div>`));
-  app.querySelectorAll('[data-ostatus]').forEach(sel => sel.addEventListener('change', async () => {
+      </tr>`).join('') || '<tr><td colspan="6" class="muted">Nenhum pedido.</td></tr>'}
+    </tbody></table></div>`;
+  const wireStatus = () => app.querySelectorAll('[data-ostatus]').forEach(sel => sel.addEventListener('change', async () => {
     try { await API.patch('/orders/' + sel.dataset.ostatus + '/status', { status: sel.value }); toast('Status atualizado', '', 'ok'); }
     catch (e) { toast('Ops', e.message, 'err'); }
   }));
+  mount(adminShell('pedidos', `
+    <div class="panel-head"><h1>Pedidos</h1><span class="muted">${orders.length} no total</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+      <select class="select" id="fStatus" style="padding:8px 10px"><option value="">Todos os status</option>${['processing', 'shipped', 'delivered', 'cancelled'].map(s => `<option value="${s}">${stLabel[s]}</option>`).join('')}</select>
+      <select class="select" id="fPay" style="padding:8px 10px"><option value="">Todo pagamento</option><option value="card">Cartão</option><option value="pix">Pix</option><option value="mbv">NTR</option></select>
+      <span style="flex:1"></span>
+      <button class="btn btn-light btn-sm" id="expOrders">${icon('box', 14)} Exportar pedidos (CSV)</button>
+      <button class="btn btn-light btn-sm" id="expCust">${icon('users', 14)} Exportar clientes (CSV)</button>
+    </div>
+    <div id="ordersTable">${tableHtml(orders)}</div>`));
+  wireStatus();
+  const apply = () => {
+    const fs = app.querySelector('#fStatus').value, fp = app.querySelector('#fPay').value;
+    app.querySelector('#ordersTable').innerHTML = tableHtml(orders.filter(o => (!fs || o.status === fs) && (!fp || o.payment_method === fp)));
+    wireStatus();
+  };
+  app.querySelector('#fStatus').addEventListener('change', apply);
+  app.querySelector('#fPay').addEventListener('change', apply);
+  app.querySelector('#expOrders').addEventListener('click', () => downloadCsv('/admin/export/orders.csv', 'pedidos-mbv.csv'));
+  app.querySelector('#expCust').addEventListener('click', () => downloadCsv('/admin/export/customers.csv', 'clientes-mbv.csv'));
 };
 
 Admin.coupons = async function () {
@@ -1440,6 +1572,12 @@ function setupErrorReporting() {
   setupErrorReporting();
   if (location.hash.startsWith('#/')) history.replaceState({}, '', location.hash.slice(1)); // migra links antigos #/ -> /
   await Store.init();
+  // Link de afiliado: ?ref=CUPOM aplica o cupom automaticamente no checkout.
+  try {
+    const ref = new URLSearchParams(location.search).get('ref');
+    if (ref) { Flow.coupon = ref.toUpperCase().trim(); localStorage.setItem('mbv_ref', Flow.coupon); }
+    else { const saved = localStorage.getItem('mbv_ref'); if (saved && !Flow.coupon) Flow.coupon = saved; }
+  } catch (_) {}
   renderHeader();
   renderFooter();
   if (Store.chain && Store.chain.gaId && localStorage.getItem('mbv_cookie_consent') === 'all') injectGA(Store.chain.gaId);

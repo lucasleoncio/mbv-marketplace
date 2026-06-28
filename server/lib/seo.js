@@ -92,12 +92,15 @@ const STATIC = {
   faq: { t: 'Perguntas frequentes', d: 'Dúvidas sobre pagamento (Cartão, Pix, token NTR), frete, trocas e segurança no marketplace MBV.' },
   privacidade: { t: 'Política de Privacidade', d: 'Como o MBV trata seus dados pessoais conforme a LGPD (Lei 13.709/2018).' },
   termos: { t: 'Termos de Uso', d: 'Termos de uso do marketplace do Movimento Brasil Verde.' },
-  trocas: { t: 'Trocas e Devoluções', d: 'Política de trocas e devoluções do MBV conforme o Código de Defesa do Consumidor.' }
+  trocas: { t: 'Trocas e Devoluções', d: 'Política de trocas e devoluções do MBV conforme o Código de Defesa do Consumidor.' },
+  transparencia: { t: 'Transparência on-chain', d: 'Endereços públicos do token Neutrotan (NTR) na Polygon — contrato, carteira da loja e explorer — para auditar as transações.', body: '<p>O NTR é um utility token (ERC-20) na rede Polygon, usado para pagar pedidos com desconto e cashback. Publicamos os endereços para auditoria on-chain e mantemos um glossário (COT, COT/PVE, organomineral).</p>' },
+  afiliados: { t: 'Programa de Afiliados', d: 'Indique a loja MBV e receba comissão. Use seu link /produtos?ref=SEUCUPOM e acompanhe as vendas atribuídas ao seu cupom.', body: '<p>Revendas, agrônomos e produtores podem indicar a loja com um cupom exclusivo e receber comissão sobre as vendas geradas pelo seu link.</p>' },
+  'metodologia-co2': { t: 'Metodologia de CO₂', d: 'Como o MBV estima o CO₂ evitado por produto: estimativa comparativa vs. manejo convencional, com base no GHG Protocol e nas diretrizes do IPCC.', body: '<p>O valor de "CO₂ evitado" é uma estimativa comparativa (CO₂e) frente ao manejo convencional — não é medição da sua lavoura nem garantia de resultado.</p>' }
 };
 function staticPage(slug) {
   const s = STATIC[slug];
   const url = APP_URL + '/' + slug;
-  const ssr = `<div class="container"><article style="max-width:780px;margin:30px auto"><h1>${esc(s.t)}</h1><p>${esc(s.d)}</p></article></div>`;
+  const ssr = `<div class="container"><article style="max-width:780px;margin:30px auto"><h1>${esc(s.t)}</h1><p>${esc(s.d)}</p>${s.body || ''}</article></div>`;
   return { title: `${s.t} — MBV`, description: s.d, canonical: url, ssr };
 }
 

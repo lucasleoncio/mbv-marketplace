@@ -14,6 +14,14 @@ services:
       - key: JWT_SECRET
         generateValue: true    # o Render gera um segredo seguro automaticamente
 
+      # --- GO-LIVE: descomente para ativar produção (bloqueia pagamento simulado) ---
+      # - key: MBV_DEMO_MODE
+      #   value: "false"
+      # - key: APP_URL
+      #   value: https://mbv-marketplace.onrender.com
+      # - key: ALLOWED_ORIGINS
+      #   value: https://mbv-marketplace.onrender.com,https://movimentobrasilverde.com
+
       # --- Pagamento on-chain do NTR (ver BLOCKCHAIN.md) ---
       # Sem NTR_CONTRACT + STORE_WALLET o checkout em NTR fica simulado.
       # Testnet (Polygon Amoy):
@@ -37,6 +45,13 @@ services:
       # --- Mercado Pago (cartão + Pix via Checkout Pro) ---
       # - key: MP_ACCESS_TOKEN
       #   value: "TEST-..."     # token de TESTE para validar (depois troque pelo de produção)
+      # - key: MP_PUBLIC_KEY
+      #   value: "APP_USR-..."
+      # - key: MP_WEBHOOK_SECRET
+      #   value: "..."          # valida a assinatura do webhook (configure {APP_URL}/api/webhooks/mercadopago)
+      # --- Carrinho abandonado (cron externo chama /api/jobs/abandoned-cart?key=) ---
+      # - key: JOBS_SECRET
+      #   value: "uma-chave-aleatoria"
       # --- E-mail (Resend) ---
       # - key: RESEND_API_KEY
       #   value: "re_..."
