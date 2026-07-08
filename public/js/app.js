@@ -11,7 +11,9 @@ function parseRoute() {
   new URLSearchParams(location.search).forEach((v, k) => { query[k] = v; });
   return { parts, query, path: location.pathname };
 }
+let pendingFocus = false; // após navegação SPA, a próxima montagem move o foco ao conteúdo (a11y)
 function go(to) {
+  pendingFocus = true;
   if (to === location.pathname + location.search) { render(); return; }
   history.pushState({}, '', to);
   render();
@@ -21,7 +23,20 @@ function buildQuery(obj) {
   const q = Object.entries(obj).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
   return q ? '?' + q : '';
 }
-function mount(html) { app.innerHTML = html; window.scrollTo(0, 0); }
+// Título da aba por rota (leitores de tela, histórico e GA enxergam a página certa).
+const TITLES = { '': '', produtos: 'Produtos', carrinho: 'Carrinho', checkout: 'Checkout', pedidos: 'Meus pedidos', pedido: 'Pedido', conta: 'Minha conta', carteira: 'Carteira NTR', favoritos: 'Favoritos', entrar: 'Entrar', sobre: 'Sobre', contato: 'Contato', faq: 'Perguntas frequentes', privacidade: 'Privacidade', termos: 'Termos de uso', trocas: 'Trocas e devoluções', 'metodologia-co2': 'Metodologia de CO₂', afiliados: 'Programa de afiliados', transparencia: 'Transparência on-chain', comparar: 'Comparar produtos', recuperar: 'Recuperar senha', redefinir: 'Redefinir senha', verificar: 'Verificação de e-mail', admin: 'Painel Admin' };
+function setTitle(t) { document.title = t ? `${t} · MBV Marketplace` : 'MBV — Marketplace de Insumos Sustentáveis'; }
+let ssrFirstPaint = app.children.length > 0; // HTML do SSR já visível: não apagar com skeleton
+function mount(html, opts = {}) {
+  app.innerHTML = html;
+  ssrFirstPaint = false;
+  window.scrollTo(0, 0);
+  if (pendingFocus && !opts.skeleton) {
+    pendingFocus = false;
+    const h = app.querySelector('h1, h2');
+    if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
+  }
+}
 function recentIds() { try { return JSON.parse(localStorage.getItem('mbv_recent') || '[]'); } catch { return []; } }
 function trackRecent(id) { try { id = Number(id); const r = recentIds().filter(x => x !== id); r.unshift(id); localStorage.setItem('mbv_recent', JSON.stringify(r.slice(0, 12))); } catch (_) {} }
 async function downloadCsv(path, filename) {
@@ -41,14 +56,23 @@ function toggleCompare(id) {
   return a.includes(id);
 }
 function loading() {
+  // No primeiro carregamento o SSR já pintou conteúdo real — não o troque por skeleton
+  // (evita o flash conteúdo→skeleton→conteúdo e preserva o LCP).
+  if (ssrFirstPaint) { ssrFirstPaint = false; return; }
   const cards = Array.from({ length: 8 }).map(() => `<div class="skel-card"><div class="skel skel-img"></div><div class="skel skel-line"></div><div class="skel skel-line short"></div></div>`).join('');
-  mount(`<div class="container"><div class="skel skel-hero"></div><div class="product-grid" style="margin-top:24px">${cards}</div><p class="muted center" id="coldHint" style="margin-top:18px;opacity:0;transition:opacity .4s">Preparando a loja… na primeira visita pode levar alguns segundos.</p></div>`);
+  mount(`<div class="container"><div class="skel skel-hero"></div><div class="product-grid" style="margin-top:24px">${cards}</div><p class="muted center" id="coldHint" style="margin-top:18px;opacity:0;transition:opacity .4s">Preparando a loja… na primeira visita pode levar alguns segundos.</p></div>`, { skeleton: true });
   setTimeout(() => { const h = document.getElementById('coldHint'); if (h) h.style.opacity = '1'; }, 2500);
 }
 
 async function render() {
   const { parts, query } = parseRoute();
   const r = parts[0] || '';
+  setTitle(TITLES[r] || ''); // páginas dinâmicas (produto/pedido) refinam depois
+  // Marca o link ativo do menu de categorias (a11y + orientação visual)
+  document.querySelectorAll('.navrow a').forEach(a => {
+    if (a.getAttribute('href') === location.pathname + location.search) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
   try {
     if (r === '') return await Pages.home();
     if (r === 'produtos') return await Pages.catalog(query);
@@ -92,15 +116,15 @@ function renderHeader() {
   <div class="header"><div class="container">
     <div class="header-main">
       <a href="/" class="logo"><img class="mark" src="https://movimentobrasilverde.com/wp-content/uploads/2026/04/cropped-Icone-MBV-270x270.png" alt="MBV — Movimento Brasil Verde" width="40" height="40" onerror="this.onerror=null;this.src='/img/logo.svg'"><span>MBV<small>MOVIMENTO BRASIL VERDE</small></span></a>
-      <form class="search" id="searchForm">
-        <input id="searchInput" placeholder="Buscar fertilizantes, sementes, energia solar…" />
-        <button type="submit">${icon('search', 18)}</button>
+      <form class="search" id="searchForm" role="search">
+        <input id="searchInput" placeholder="Buscar fertilizantes, sementes, energia solar…" aria-label="Buscar produtos" />
+        <button type="submit" aria-label="Buscar">${icon('search', 18)}</button>
       </form>
       <div class="header-actions">
         ${u ? `<a href="/carteira" class="wallet-chip" title="Carteira Neutrotan (NTR)"><span class="tk">${iconFill('coin', 12)}</span><span>${mbv(Store.balance)}</span></a>` : ''}
         <a href="/carrinho" class="icon-btn" title="Carrinho">${icon('cart', 19)}<span class="lbl">Carrinho</span>${Store.cartCount ? `<span class="count">${Store.cartCount}</span>` : ''}</a>
         <div class="menu" id="acctMenu">
-          <button class="icon-btn" id="acctBtn">${icon('user', 19)}<span class="lbl">${u ? 'Conta' : 'Entrar'}</span></button>
+          <button class="icon-btn" id="acctBtn" aria-haspopup="true" aria-expanded="false">${icon('user', 19)}<span class="lbl">${u ? 'Conta' : 'Entrar'}</span></button>
           <div class="menu-pop hide" id="acctPop">
             ${u ? `
               <a href="/conta">${icon('user', 17)} Minha conta</a>
@@ -128,8 +152,13 @@ function renderHeader() {
     e.preventDefault(); go('/produtos' + buildQuery({ q: document.getElementById('searchInput').value.trim() }));
   });
   const pop = document.getElementById('acctPop');
-  document.getElementById('acctBtn').addEventListener('click', e => { e.stopPropagation(); pop.classList.toggle('hide'); });
-  // (o fechamento do menu ao clicar fora é feito pelo listener global delegado — 1 registro só, sem vazamento)
+  const acctBtn = document.getElementById('acctBtn');
+  acctBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    pop.classList.toggle('hide');
+    acctBtn.setAttribute('aria-expanded', String(!pop.classList.contains('hide')));
+  });
+  // (o fechamento do menu ao clicar fora/Esc é feito pelos listeners globais delegados — 1 registro só, sem vazamento)
   const lo = document.getElementById('logoutBtn');
   if (lo) lo.addEventListener('click', () => { Store.logout(); renderHeader(); go('/'); toast('Até logo!', 'Você saiu da sua conta.'); });
 }
@@ -178,23 +207,31 @@ async function addToCart(id, qty = 1) {
     Store.cartCount = r.count; renderHeader(); toast('Adicionado ao carrinho', '', 'ok');
   } catch (e) { toast('Ops', e.message, 'err'); }
 }
+function paintFav(id, on) {
+  document.querySelectorAll(`[data-fav="${id}"]`).forEach(b => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+}
 async function toggleFav(id) {
   id = Number(id);
   if (!Store.isAuthed()) {
-    const on = Store.guestToggleFav(id);
-    document.querySelectorAll(`[data-fav="${id}"]`).forEach(b => b.classList.toggle('on', on));
+    paintFav(id, Store.guestToggleFav(id));
     return;
   }
   try {
     const r = await API.post('/cart/favorites/' + id);
     if (r.favorited) Store.favorites.add(id); else Store.favorites.delete(id);
-    document.querySelectorAll(`[data-fav="${id}"]`).forEach(b => b.classList.toggle('on', r.favorited));
+    paintFav(id, r.favorited);
   } catch (e) { toast('Ops', e.message, 'err'); }
 }
+function closeAcctMenu() {
+  const acctPop = document.getElementById('acctPop');
+  const acctBtn = document.getElementById('acctBtn');
+  if (acctPop) acctPop.classList.add('hide');
+  if (acctBtn) acctBtn.setAttribute('aria-expanded', 'false');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAcctMenu(); });
 document.addEventListener('click', e => {
   // Fecha o menu da conta ao clicar em qualquer lugar (o botão usa stopPropagation para alternar).
-  const acctPop = document.getElementById('acctPop');
-  if (acctPop) acctPop.classList.add('hide');
+  closeAcctMenu();
   const add = e.target.closest('[data-add]'); if (add) { e.preventDefault(); addToCart(add.dataset.add); return; }
   const fav = e.target.closest('[data-fav]'); if (fav) { e.preventDefault(); toggleFav(fav.dataset.fav); return; }
   const a = e.target.closest('a');
@@ -507,6 +544,7 @@ Pages.catalog = async function (query) {
 Pages.product = async function (id) {
   loading();
   const { product: p, reviews, related } = await API.get('/products/' + id);
+  setTitle(p.name);
   const off = p.compare_at_price && p.compare_at_price > p.price ? Math.round((1 - p.price / p.compare_at_price) * 100) : 0;
   const fav = Store.favorites.has(p.id);
   trackRecent(p.id);
@@ -538,10 +576,10 @@ Pages.product = async function (id) {
         </div>
 
         <div class="buy-row">
-          <div class="qty"><button data-q="-1">−</button><input id="qty" value="1" inputmode="numeric"><button data-q="1">+</button></div>
+          <div class="qty"><button data-q="-1" aria-label="Diminuir quantidade">−</button><input id="qty" value="1" inputmode="numeric" aria-label="Quantidade"><button data-q="1" aria-label="Aumentar quantidade">+</button></div>
           <button class="btn btn-primary btn-lg" id="addBtn" ${p.stock <= 0 ? 'disabled' : ''}>${icon('cart', 18)} Adicionar</button>
           <button class="btn btn-dark btn-lg" id="buyBtn" ${p.stock <= 0 ? 'disabled' : ''}>Comprar agora</button>
-          <button class="btn btn-ghost btn-lg fav ${fav ? 'on' : ''}" data-fav="${p.id}" style="${fav ? 'color:var(--danger)' : ''}">${iconFill('heart', 18)}</button>
+          <button class="btn btn-ghost btn-lg fav ${fav ? 'on' : ''}" data-fav="${p.id}" style="${fav ? 'color:var(--danger)' : ''}" aria-pressed="${fav}" aria-label="Favoritar produto">${iconFill('heart', 18)}</button>
         </div>
         <div class="cmp-row"><button class="btn btn-ghost btn-sm" id="cmpBtn"></button><a href="/comparar" class="btn btn-ghost btn-sm" id="cmpLink" style="display:none"></a></div>
         <div class="trust-row">
@@ -717,7 +755,7 @@ function cartLine(it) {
     <div>
       <a href="/produto/${it.product_id}" style="font-weight:600;font-family:var(--display)">${escapeHtml(it.name)}</a>
       <div class="muted" style="font-size:13px;margin:3px 0 8px">${money(it.price)} ${it.unit !== 'un' ? '/ ' + escapeHtml(it.unit) : ''}</div>
-      <div class="qty"><button data-cq="-1">−</button><input value="${it.quantity}" data-qval readonly><button data-cq="1">+</button></div>
+      <div class="qty"><button data-cq="-1" aria-label="Diminuir quantidade">−</button><input value="${it.quantity}" data-qval readonly aria-label="Quantidade de ${escapeHtml(it.name)}"><button data-cq="1" aria-label="Aumentar quantidade">+</button></div>
     </div>
     <div style="text-align:right">
       <div class="price" style="font-size:17px">${money(it.price * it.quantity)}</div>
@@ -1587,7 +1625,7 @@ function setupErrorReporting() {
   renderHeader();
   renderFooter();
   if (Store.chain && Store.chain.gaId && localStorage.getItem('mbv_cookie_consent') === 'all') injectGA(Store.chain.gaId);
-  window.addEventListener('popstate', render);
+  window.addEventListener('popstate', () => { pendingFocus = true; render(); });
   render();
   cookieBanner();
 })();

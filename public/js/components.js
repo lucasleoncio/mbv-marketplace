@@ -114,7 +114,7 @@ const UI = (function () {
       <div class="thumb">
         <a href="/produto/${p.id}/${p.slug || ''}"><img loading="lazy" src="${productImage(p)}" onerror="${imgFallback(p)}" alt="${escapeHtml(p.name)}"></a>
         ${off ? `<span class="tag-off">-${off}%</span>` : ''}
-        <button class="fav ${fav ? 'on' : ''}" data-fav="${p.id}" title="Favoritar">${iconFill('heart', 17)}</button>
+        <button class="fav ${fav ? 'on' : ''}" data-fav="${p.id}" title="Favoritar" aria-pressed="${fav}" aria-label="Favoritar ${escapeHtml(p.name)}">${iconFill('heart', 17)}</button>
       </div>
       <div class="body">
         <span class="cat">${escapeHtml(p.category_name || '')}</span>
@@ -149,6 +149,7 @@ const UI = (function () {
   // ---------- Modal ----------
   function openModal(title, bodyHtml, opts = {}) {
     const root = document.getElementById('modal-root');
+    root._prevFocus = document.activeElement; // devolve o foco ao fechar (a11y)
     root.innerHTML = `<div class="modal-overlay" data-overlay>
       <div class="modal" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}" tabindex="-1" style="${opts.maxWidth ? 'max-width:' + opts.maxWidth + 'px' : ''}">
         <div class="modal-head"><h3>${escapeHtml(title)}</h3><button class="x" data-close aria-label="Fechar">✕</button></div>
@@ -165,6 +166,8 @@ const UI = (function () {
     const root = document.getElementById('modal-root');
     if (root._onKey) { document.removeEventListener('keydown', root._onKey); root._onKey = null; }
     root.innerHTML = '';
+    if (root._prevFocus && typeof root._prevFocus.focus === 'function' && document.contains(root._prevFocus)) root._prevFocus.focus();
+    root._prevFocus = null;
   }
 
   function statusPill(s) {

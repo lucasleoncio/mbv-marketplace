@@ -26,6 +26,13 @@ button{font-family:inherit;cursor:pointer}
 /* Acessibilidade: foco visível em elementos interativos */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.btn:focus-visible,[tabindex]:focus-visible{outline:3px solid rgba(47,143,91,.5);outline-offset:2px;border-radius:10px}
 :focus:not(:focus-visible){outline:none}
+/* Acessibilidade: pular direto ao conteúdo (visível só ao focar via teclado) */
+.skip-link{position:absolute;left:-9999px;top:0;z-index:300;background:var(--green-800);color:#fff;padding:10px 18px;border-radius:0 0 12px 0;font-weight:700;font-size:14px}
+.skip-link:focus{left:0}
+/* Acessibilidade: respeita quem prefere menos movimento */
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+/* Link ativo do menu de categorias */
+.navrow a[aria-current="page"]{color:var(--green-700);font-weight:700}
 .container{max-width:var(--max);margin:0 auto;padding:0 22px}
 .loader{padding:80px 0;text-align:center;color:var(--muted)}
 .muted{color:var(--muted)} .center{text-align:center}
