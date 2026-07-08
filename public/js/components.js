@@ -32,7 +32,9 @@ const UI = (function () {
     leafFill: '<path d="M11 20A7 7 0 0 1 4 13c0-5 4-9 16-9 0 12-4 16-9 16Z"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
     menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
-    spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="3"/>'
+    spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="3"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    eyeOff: '<path d="m3 3 18 18"/><path d="M10.6 5.1A11 11 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3 3.9M6.6 6.6C4 8.3 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.4 4.7-1.2"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>'
   };
   function icon(name, size = 20, stroke = 1.9) {
     return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round">${I[name] || ''}</svg>`;

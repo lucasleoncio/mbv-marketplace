@@ -798,9 +798,10 @@ function summaryBox(t, mode) {
     <div class="sum-row total"><span>Total</span><span>${money(t.total)}</span></div>
     <div class="price-mbv" style="text-align:right;margin:4px 0 2px">${iconFill('coin', 13)} ${mbv(t.mbvAmount)} · cashback de ${mbv(t.cashbackMbv)}</div>
     <div class="coupon-row">
-      <input id="couponInput" placeholder="Cupom (ex: COINMAX)" value="${escapeHtml(Flow.coupon)}">
+      <input id="couponInput" placeholder="Cupom (ex: COINMAX)" value="${escapeHtml(Flow.coupon)}" aria-label="Código do cupom">
       <button class="btn btn-light" id="applyCoupon">Aplicar</button>
     </div>
+    ${t.couponError ? `<div class="field-err" role="alert" style="margin:-6px 0 10px">${escapeHtml(t.couponError)}</div>` : ''}
     ${t.coupon ? `<div class="badge-soft" style="margin-bottom:12px">${icon('check', 12)} ${escapeHtml(t.coupon.description || t.coupon.code)}</div>` : ''}
     ${mode === 'carrinho'
       ? `<a href="/checkout" class="btn btn-primary btn-block btn-lg">Finalizar compra ${icon('arrow', 17)}</a>`
@@ -822,6 +823,48 @@ function wireSummary(mode) {
   });
 }
 
+/* ---------- Máscaras e validação inline (sem lib) ---------- */
+const Mask = {
+  cep: v => v.replace(/\D/g, '').slice(0, 8).replace(/(\d{5})(\d)/, '$1-$2'),
+  cpfCnpj: v => {
+    const d = v.replace(/\D/g, '').slice(0, 14);
+    return d.length <= 11
+      ? d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+      : d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+  },
+  phone: v => {
+    const d = v.replace(/\D/g, '').slice(0, 11);
+    if (d.length <= 2) return d;
+    if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  },
+  card: v => v.replace(/\D/g, '').slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 '),
+  expiry: v => { const d = v.replace(/\D/g, '').slice(0, 4); return d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; }
+};
+function applyMask(el, fn) {
+  if (!el) return;
+  el.addEventListener('input', () => { el.value = fn(el.value); });
+}
+// Mostra/limpa erro sob o campo (borda vermelha + mensagem + aria-invalid).
+function fieldError(el, msg) {
+  if (!el) return;
+  const field = el.closest('.field') || el.parentElement;
+  let err = field.querySelector('.field-err');
+  if (msg) {
+    el.setAttribute('aria-invalid', 'true'); el.classList.add('invalid');
+    if (!err) { err = document.createElement('span'); err.className = 'field-err'; field.appendChild(err); }
+    err.textContent = msg;
+  } else {
+    el.removeAttribute('aria-invalid'); el.classList.remove('invalid');
+    if (err) err.remove();
+  }
+}
+// Ao digitar num campo marcado como inválido, o erro some (1 listener global, sem vazamento).
+document.addEventListener('input', e => {
+  if (e.target && e.target.getAttribute && e.target.getAttribute('aria-invalid') === 'true') fieldError(e.target, '');
+});
+
 /* ---------- CHECKOUT ---------- */
 Pages.checkout = async function () {
   if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('/checkout'));
@@ -836,16 +879,16 @@ Pages.checkout = async function () {
       <div>
         <div class="panel">
           <h3>${icon('truck', 18)} Endereço de entrega</h3>
-          <div class="field"><label>Nome completo</label><input id="s_name" value="${escapeHtml(Store.user.name)}"></div>
-          <div class="field"><label>CPF/CNPJ <span class="muted" style="font-weight:400">(para nota fiscal e cupons exclusivos)</span></label><input id="s_cpf" placeholder="000.000.000-00" value="${escapeHtml(Flow.cpf || '')}"></div>
+          <div class="field"><label>Nome completo</label><input id="s_name" value="${escapeHtml(Store.user.name)}" autocomplete="name"></div>
+          <div class="field"><label>CPF/CNPJ <span class="muted" style="font-weight:400">(para nota fiscal e cupons exclusivos)</span></label><input id="s_cpf" placeholder="000.000.000-00" value="${escapeHtml(Flow.cpf || '')}" inputmode="numeric"></div>
           <div class="grid-2">
             <div class="field"><label>CEP</label><input id="s_cep" placeholder="00000-000" inputmode="numeric" autocomplete="postal-code"><span id="cepHint" class="muted" style="font-size:12.5px" aria-live="polite"></span></div>
-            <div class="field"><label>Telefone</label><input id="s_phone" placeholder="(00) 00000-0000"></div>
+            <div class="field"><label>Telefone</label><input id="s_phone" placeholder="(00) 00000-0000" inputmode="tel" autocomplete="tel-national"></div>
           </div>
-          <div class="field"><label>Endereço (rua, nº, complemento)</label><input id="s_address" placeholder="Rua, número, bairro"></div>
+          <div class="field"><label>Endereço (rua, nº, complemento)</label><input id="s_address" placeholder="Rua, número, bairro" autocomplete="street-address"></div>
           <div class="grid-2">
-            <div class="field"><label>Cidade</label><input id="s_city"></div>
-            <div class="field"><label>Estado (UF)</label><input id="s_state" maxlength="2" placeholder="SP"></div>
+            <div class="field"><label>Cidade</label><input id="s_city" autocomplete="address-level2"></div>
+            <div class="field"><label>Estado (UF)</label><input id="s_state" maxlength="2" placeholder="SP" autocomplete="address-level1" style="text-transform:uppercase"></div>
           </div>
         </div>
 
@@ -863,10 +906,14 @@ Pages.checkout = async function () {
     </div>
   </div>`);
 
+  lastTotals = data.totals; // disponível já no primeiro setPayment (nudge NTR)
   setPayment(Flow.payment);
   app.querySelectorAll('[data-pay]').forEach(o => o.addEventListener('click', () => setPayment(o.dataset.pay)));
   wireSummary('checkout');
   app.querySelector('#placeOrder').addEventListener('click', placeOrder);
+  applyMask(app.querySelector('#s_cep'), Mask.cep);
+  applyMask(app.querySelector('#s_cpf'), Mask.cpfCnpj);
+  applyMask(app.querySelector('#s_phone'), Mask.phone);
   const cepEl = app.querySelector('#s_cep');
   if (cepEl) cepEl.addEventListener('blur', async () => {
     const cep = cepEl.value.replace(/\D/g, '');
@@ -891,22 +938,32 @@ Pages.checkout = async function () {
   if (cpfEl) cpfEl.addEventListener('blur', () => { Flow.cpf = cpfEl.value; refreshCheckoutSummary(); });
 };
 
+// Banner "pague em NTR e economize" — aparece em Cartão/Pix quando o saldo interno cobre o pedido.
+function ntrNudge() {
+  if (!lastTotals || (Store.chain && Store.chain.enabled)) return ''; // no modo on-chain o saldo interno não paga
+  const econ = Math.round(((lastTotals.subtotal - (lastTotals.couponDiscount || 0)) * 0.05) * 100) / 100;
+  const needed = Math.round(((lastTotals.total - econ) / (Store.rate || 9.36)) * 100) / 100;
+  if (econ <= 0 || Store.balance < needed) return '';
+  return `<button type="button" class="ntr-nudge" id="ntrNudge">${iconFill('coin', 14)} <span>Você tem <b>${mbv(Store.balance)}</b> — pague em NTR e <b>economize ${money(econ)}</b></span></button>`;
+}
 function setPayment(method) {
   Flow.payment = method;
   app.querySelectorAll('[data-pay]').forEach(o => o.classList.toggle('active', o.dataset.pay === method));
   const panel = app.querySelector('#payPanel');
   const mpOn = Store.chain && Store.chain.mpEnabled;
   if (method === 'card') {
-    panel.innerHTML = mpOn
+    panel.innerHTML = (mpOn
       ? `<div class="eco-note"><div class="ic">${icon('card', 20)}</div><div><b>Cartão via Mercado Pago</b><br><span class="muted" style="font-size:13.5px">Você será direcionado ao ambiente seguro do Mercado Pago para pagar com cartão. O pedido é confirmado automaticamente.</span></div></div>`
-      : `<div class="field"><label>Número do cartão</label><input id="c_number" placeholder="0000 0000 0000 0000" inputmode="numeric"></div>
-      <div class="field"><label>Nome impresso no cartão</label><input id="c_name" placeholder="Como está no cartão"></div>
-      <div class="grid-2"><div class="field"><label>Validade</label><input id="c_expiry" placeholder="MM/AA"></div><div class="field"><label>CVV</label><input id="c_cvv" placeholder="123" inputmode="numeric"></div></div>
-      <p class="muted" style="font-size:12px">${icon('shield', 12)} Ambiente de demonstração — não insira dados reais.</p>`;
+      : `<div class="field"><label>Número do cartão</label><input id="c_number" placeholder="0000 0000 0000 0000" inputmode="numeric" autocomplete="cc-number"></div>
+      <div class="field"><label>Nome impresso no cartão</label><input id="c_name" placeholder="Como está no cartão" autocomplete="cc-name"></div>
+      <div class="grid-2"><div class="field"><label>Validade</label><input id="c_expiry" placeholder="MM/AA" inputmode="numeric" autocomplete="cc-exp"></div><div class="field"><label>CVV</label><input id="c_cvv" placeholder="123" inputmode="numeric" autocomplete="cc-csc" maxlength="4"></div></div>
+      <p class="muted" style="font-size:12px">${icon('shield', 12)} Ambiente de demonstração — não insira dados reais.</p>`) + ntrNudge();
+    applyMask(panel.querySelector('#c_number'), Mask.card);
+    applyMask(panel.querySelector('#c_expiry'), Mask.expiry);
   } else if (method === 'pix') {
-    panel.innerHTML = mpOn
+    panel.innerHTML = (mpOn
       ? `<div class="eco-note"><div class="ic">${icon('pix', 20)}</div><div><b>Pix via Mercado Pago</b><br><span class="muted" style="font-size:13.5px">Você será direcionado ao Mercado Pago para pagar com Pix. Aprovação na hora.</span></div></div>`
-      : `<div class="eco-note"><div class="ic">${icon('pix', 20)}</div><div><b>Pix</b><br><span class="muted" style="font-size:13.5px">O código copia-e-cola será gerado ao confirmar o pedido. Pagamento com aprovação imediata.</span></div></div>`;
+      : `<div class="eco-note"><div class="ic">${icon('pix', 20)}</div><div><b>Pix</b><br><span class="muted" style="font-size:13.5px">O código copia-e-cola será gerado ao confirmar o pedido. Pagamento com aprovação imediata.</span></div></div>`) + ntrNudge();
   } else if (Store.chain && Store.chain.enabled) {
     // Pagamento on-chain real (carteira do cliente / MetaMask)
     panel.innerHTML = `<div class="mbv-pay">
@@ -922,6 +979,8 @@ function setPayment(method) {
       ${!enough ? `<div style="background:rgba(255,255,255,.15);border-radius:10px;padding:10px;margin-top:12px;font-size:13px">Saldo insuficiente. <a href="/carteira" style="color:var(--lime);font-weight:700">Recarregar carteira →</a></div>` : `<div style="margin-top:10px;font-size:13px;color:#cfe9d6">${icon('check', 13)} Você ganha 5% de desconto pagando com Neutrotan (NTR).</div>`}
     </div>`;
   }
+  const nb = panel.querySelector('#ntrNudge');
+  if (nb) nb.addEventListener('click', () => setPayment('mbv'));
   refreshCheckoutSummary();
 }
 
@@ -937,17 +996,43 @@ async function refreshCheckoutSummary() {
 }
 
 async function placeOrder() {
+  const $ = (sel) => app.querySelector(sel);
   const ship = {
-    name: app.querySelector('#s_name').value.trim(), cep: app.querySelector('#s_cep').value.trim(),
-    address: app.querySelector('#s_address').value.trim(), city: app.querySelector('#s_city').value.trim(),
-    state: app.querySelector('#s_state').value.trim(), phone: app.querySelector('#s_phone').value.trim()
+    name: $('#s_name').value.trim(), cep: $('#s_cep').value.trim(),
+    address: $('#s_address').value.trim(), city: $('#s_city').value.trim(),
+    state: $('#s_state').value.trim().toUpperCase(), phone: $('#s_phone').value.trim()
   };
-  for (const [k, label] of [['name', 'nome'], ['cep', 'CEP'], ['address', 'endereço'], ['city', 'cidade'], ['state', 'estado']]) {
-    if (!ship[k]) return toast('Endereço incompleto', 'Preencha o campo: ' + label, 'err');
+  // Validação inline: TODOS os campos de uma vez, erro sob cada campo, foco no primeiro.
+  const checks = [
+    ['#s_name', !!ship.name, 'Informe o nome completo.'],
+    ['#s_cep', ship.cep.replace(/\D/g, '').length === 8, 'Informe um CEP válido (8 dígitos).'],
+    ['#s_address', !!ship.address, 'Informe rua, número e bairro.'],
+    ['#s_city', !!ship.city, 'Informe a cidade.'],
+    ['#s_state', /^[A-Z]{2}$/.test(ship.state), 'UF com 2 letras (ex.: SP).']
+  ];
+  const simCard = Flow.payment === 'card' && !(Store.chain && Store.chain.mpEnabled);
+  if (simCard) {
+    checks.push(
+      ['#c_number', /^\d{13,19}$/.test($('#c_number').value.replace(/\s/g, '')), 'Número de cartão inválido.'],
+      ['#c_name', !!$('#c_name').value.trim(), 'Informe o nome impresso no cartão.'],
+      ['#c_expiry', /^\d{2}\/\d{2}$/.test($('#c_expiry').value), 'Validade no formato MM/AA.'],
+      ['#c_cvv', /^\d{3,4}$/.test($('#c_cvv').value), 'CVV com 3 ou 4 dígitos.']
+    );
+  }
+  let firstBad = null;
+  for (const [sel, ok, msg] of checks) {
+    const el = $(sel);
+    fieldError(el, ok ? '' : msg);
+    if (!ok && !firstBad) firstBad = el;
+  }
+  if (firstBad) {
+    firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    firstBad.focus({ preventScroll: true });
+    return toast('Revise os campos destacados', '', 'err');
   }
   const body = { payment_method: Flow.payment, coupon_code: Flow.coupon, shipping: ship, cpf: Flow.cpf };
-  if (Flow.payment === 'card' && !(Store.chain && Store.chain.mpEnabled)) {
-    body.card = { number: app.querySelector('#c_number').value, name: app.querySelector('#c_name').value, expiry: app.querySelector('#c_expiry').value, cvv: app.querySelector('#c_cvv').value };
+  if (simCard) {
+    body.card = { number: $('#c_number').value, name: $('#c_name').value, expiry: $('#c_expiry').value, cvv: $('#c_cvv').value };
   }
   const btn = app.querySelector('#placeOrder'); btn.disabled = true; btn.textContent = 'Processando…';
   try {
@@ -1238,33 +1323,78 @@ Pages.auth = function (query) {
     <div id="authForm"></div>
   </div></div>`);
 
+  // Campo de senha com botão mostrar/ocultar (a11y: aria-pressed + rótulo).
+  function passField(id, label, placeholder, autocomplete) {
+    return `<div class="field"><label for="${id}">${label}</label><div class="pass-wrap">
+      <input id="${id}" type="password" placeholder="${placeholder}" autocomplete="${autocomplete}">
+      <button type="button" class="pass-eye" data-eye="${id}" aria-label="Mostrar senha" aria-pressed="false">${icon('eye', 17)}</button>
+    </div></div>`;
+  }
+  function wireEyes(box) {
+    box.querySelectorAll('[data-eye]').forEach(b => b.addEventListener('click', () => {
+      const inp = box.querySelector('#' + b.dataset.eye);
+      const show = inp.type === 'password';
+      inp.type = show ? 'text' : 'password';
+      b.setAttribute('aria-pressed', String(show));
+      b.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha');
+      b.innerHTML = icon(show ? 'eyeOff' : 'eye', 17);
+      inp.focus();
+    }));
+  }
+  // Submit com estado de carregamento (evita clique duplo) e restauração em erro.
+  async function submitWith(btn, busyLabel, fn) {
+    const original = btn.innerHTML;
+    btn.disabled = true; btn.textContent = busyLabel;
+    try { await fn(); } catch (e) { btn.disabled = false; btn.innerHTML = original; throw e; }
+  }
   function renderForm(which) {
     const box = app.querySelector('#authForm');
     if (which === 'login') {
       box.innerHTML = `<h1>Bem-vindo de volta</h1><p class="muted" style="margin:0 0 18px">Acesse sua conta MBV.</p>
-        <div class="field"><label>E-mail</label><input id="l_email" type="email" placeholder="voce@email.com"></div>
-        <div class="field"><label>Senha</label><input id="l_pass" type="password" placeholder="••••••"></div>
-        <button class="btn btn-primary btn-block btn-lg" id="loginBtn">Entrar</button>
+        <form id="loginForm" novalidate>
+        <div class="field"><label for="l_email">E-mail</label><input id="l_email" type="email" placeholder="voce@email.com" autocomplete="email" inputmode="email"></div>
+        ${passField('l_pass', 'Senha', '••••••', 'current-password')}
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="loginBtn">Entrar</button>
+        </form>
         <p style="text-align:center;margin-top:12px"><a href="/recuperar" style="color:var(--green-700);font-weight:600;font-size:13.5px">Esqueci minha senha</a></p>
         <div class="demo-box"><b>Contas de demonstração:</b><br>Admin: <b>admin@mbv.com</b> / admin123<br>Cliente: <b>cliente@mbv.com</b> / cliente123</div>`;
-      box.querySelector('#loginBtn').addEventListener('click', async () => {
+      wireEyes(box);
+      box.querySelector('#loginForm').addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const email = app.querySelector('#l_email'), pass = app.querySelector('#l_pass');
+        fieldError(email, email.value.trim() ? '' : 'Informe seu e-mail.');
+        fieldError(pass, pass.value ? '' : 'Informe sua senha.');
+        if (!email.value.trim() || !pass.value) return;
         try {
-          const r = await API.post('/auth/login', { email: app.querySelector('#l_email').value.trim(), password: app.querySelector('#l_pass').value });
-          Store.setSession(r.token, r.user); await Store.refreshFavorites(); await Store.mergeGuestToServer(); await Store.refreshCart(); await Store.refreshFavorites(); renderHeader();
-          toast('Olá, ' + r.user.name.split(' ')[0] + '!', '', 'ok'); go(decodeURIComponent(next).replace(/^#/, '') || '/');
+          await submitWith(box.querySelector('#loginBtn'), 'Entrando…', async () => {
+            const r = await API.post('/auth/login', { email: email.value.trim(), password: pass.value });
+            Store.setSession(r.token, r.user); await Store.refreshFavorites(); await Store.mergeGuestToServer(); await Store.refreshCart(); await Store.refreshFavorites(); renderHeader();
+            toast('Olá, ' + r.user.name.split(' ')[0] + '!', '', 'ok'); go(decodeURIComponent(next).replace(/^#/, '') || '/');
+          });
         } catch (e) { toast('Falha no login', e.message, 'err'); }
       });
     } else {
       box.innerHTML = `<h1>Criar conta</h1><p class="muted" style="margin:0 0 18px">Ganhe <b>150 NTR</b> de boas-vindas.</p>
-        <div class="field"><label>Nome completo</label><input id="r_name"></div>
-        <div class="field"><label>E-mail</label><input id="r_email" type="email"></div>
-        <div class="field"><label>Senha</label><input id="r_pass" type="password" placeholder="Mínimo 6 caracteres"></div>
-        <button class="btn btn-primary btn-block btn-lg" id="regBtn">Criar conta</button>`;
-      box.querySelector('#regBtn').addEventListener('click', async () => {
+        <form id="regForm" novalidate>
+        <div class="field"><label for="r_name">Nome completo</label><input id="r_name" autocomplete="name"></div>
+        <div class="field"><label for="r_email">E-mail</label><input id="r_email" type="email" autocomplete="email" inputmode="email"></div>
+        ${passField('r_pass', 'Senha', 'Mínimo 6 caracteres', 'new-password')}
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="regBtn">Criar conta</button>
+        </form>`;
+      wireEyes(box);
+      box.querySelector('#regForm').addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const name = app.querySelector('#r_name'), email = app.querySelector('#r_email'), pass = app.querySelector('#r_pass');
+        fieldError(name, name.value.trim() ? '' : 'Informe seu nome.');
+        fieldError(email, /.+@.+\..+/.test(email.value.trim()) ? '' : 'Informe um e-mail válido.');
+        fieldError(pass, pass.value.length >= 6 ? '' : 'A senha precisa de pelo menos 6 caracteres.');
+        if (!name.value.trim() || !/.+@.+\..+/.test(email.value.trim()) || pass.value.length < 6) return;
         try {
-          const r = await API.post('/auth/register', { name: app.querySelector('#r_name').value.trim(), email: app.querySelector('#r_email').value.trim(), password: app.querySelector('#r_pass').value });
-          Store.setSession(r.token, r.user); await Store.mergeGuestToServer(); await Store.refreshCart(); await Store.refreshFavorites(); renderHeader();
-          toast('Conta criada!', 'Você ganhou 150 NTR 🌱', 'ok'); go(decodeURIComponent(next).replace(/^#/, '') || '/');
+          await submitWith(box.querySelector('#regBtn'), 'Criando conta…', async () => {
+            const r = await API.post('/auth/register', { name: name.value.trim(), email: email.value.trim(), password: pass.value });
+            Store.setSession(r.token, r.user); await Store.mergeGuestToServer(); await Store.refreshCart(); await Store.refreshFavorites(); renderHeader();
+            toast('Conta criada!', 'Você ganhou 150 NTR 🌱', 'ok'); go(decodeURIComponent(next).replace(/^#/, '') || '/');
+          });
         } catch (e) { toast('Não foi possível cadastrar', e.message, 'err'); }
       });
     }
@@ -1279,11 +1409,14 @@ Pages.auth = function (query) {
 Pages.forgot = function () {
   mount(`<div class="container"><div class="auth-wrap">
     <h1>Recuperar senha</h1><p class="muted" style="margin:0 0 18px">Informe seu e-mail e enviaremos um link para redefinir a senha.</p>
-    <div class="field"><label>E-mail</label><input id="fg_email" type="email" placeholder="voce@email.com"></div>
-    <button class="btn btn-primary btn-block btn-lg" id="fgBtn">Enviar link</button>
+    <form id="fgForm" novalidate>
+    <div class="field"><label for="fg_email">E-mail</label><input id="fg_email" type="email" placeholder="voce@email.com" autocomplete="email" inputmode="email"></div>
+    <button type="submit" class="btn btn-primary btn-block btn-lg" id="fgBtn">Enviar link</button>
+    </form>
     <p style="text-align:center;margin-top:14px"><a href="/entrar" style="color:var(--green-700);font-weight:600">Voltar ao login</a></p>
   </div></div>`);
-  app.querySelector('#fgBtn').addEventListener('click', async () => {
+  app.querySelector('#fgForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
     try { await API.post('/auth/forgot', { email: app.querySelector('#fg_email').value.trim() }); toast('Verifique seu e-mail', 'Se houver uma conta, enviamos o link de redefinição.', 'ok'); }
     catch (e) { toast('Ops', e.message, 'err'); }
   });
@@ -1292,10 +1425,13 @@ Pages.reset = function (query) {
   const token = query.token || '';
   mount(`<div class="container"><div class="auth-wrap">
     <h1>Redefinir senha</h1><p class="muted" style="margin:0 0 18px">Crie uma nova senha para sua conta.</p>
-    <div class="field"><label>Nova senha</label><input id="rs_pass" type="password" placeholder="Mínimo 6 caracteres"></div>
-    <button class="btn btn-primary btn-block btn-lg" id="rsBtn">Salvar nova senha</button>
+    <form id="rsForm" novalidate>
+    <div class="field"><label for="rs_pass">Nova senha</label><input id="rs_pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>
+    <button type="submit" class="btn btn-primary btn-block btn-lg" id="rsBtn">Salvar nova senha</button>
+    </form>
   </div></div>`);
-  app.querySelector('#rsBtn').addEventListener('click', async () => {
+  app.querySelector('#rsForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
     try { await API.post('/auth/reset', { token, password: app.querySelector('#rs_pass').value }); toast('Senha alterada!', 'Já pode entrar com a nova senha.', 'ok'); go('/entrar'); }
     catch (e) { toast('Ops', e.message, 'err'); }
   });
@@ -1619,8 +1755,12 @@ function setupErrorReporting() {
   // Link de afiliado: ?ref=CUPOM aplica o cupom automaticamente no checkout.
   try {
     const ref = new URLSearchParams(location.search).get('ref');
-    if (ref) { Flow.coupon = ref.toUpperCase().trim(); localStorage.setItem('mbv_ref', Flow.coupon); }
-    else { const saved = localStorage.getItem('mbv_ref'); if (saved && !Flow.coupon) Flow.coupon = saved; }
+    if (ref) {
+      Flow.coupon = ref.toUpperCase().trim();
+      localStorage.setItem('mbv_ref', Flow.coupon);
+      // Antes era aplicado em silêncio — agora o cliente VÊ que o cupom do parceiro está ativo.
+      setTimeout(() => toast('Cupom de parceiro ativado', `O cupom ${Flow.coupon} será aplicado no seu pedido.`, 'info'), 600);
+    } else { const saved = localStorage.getItem('mbv_ref'); if (saved && !Flow.coupon) Flow.coupon = saved; }
   } catch (_) {}
   renderHeader();
   renderFooter();
