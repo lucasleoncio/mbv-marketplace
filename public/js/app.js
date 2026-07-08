@@ -26,10 +26,8 @@ function buildQuery(obj) {
 // Título da aba por rota (leitores de tela, histórico e GA enxergam a página certa).
 const TITLES = { '': '', produtos: 'Produtos', carrinho: 'Carrinho', checkout: 'Checkout', pedidos: 'Meus pedidos', pedido: 'Pedido', conta: 'Minha conta', carteira: 'Carteira NTR', favoritos: 'Favoritos', entrar: 'Entrar', sobre: 'Sobre', contato: 'Contato', faq: 'Perguntas frequentes', privacidade: 'Privacidade', termos: 'Termos de uso', trocas: 'Trocas e devoluções', 'metodologia-co2': 'Metodologia de CO₂', afiliados: 'Programa de afiliados', transparencia: 'Transparência on-chain', comparar: 'Comparar produtos', recuperar: 'Recuperar senha', redefinir: 'Redefinir senha', verificar: 'Verificação de e-mail', admin: 'Painel Admin' };
 function setTitle(t) { document.title = t ? `${t} · MBV Marketplace` : 'MBV — Marketplace de Insumos Sustentáveis'; }
-let ssrFirstPaint = app.children.length > 0; // HTML do SSR já visível: não apagar com skeleton
 function mount(html, opts = {}) {
   app.innerHTML = html;
-  ssrFirstPaint = false;
   window.scrollTo(0, 0);
   if (pendingFocus && !opts.skeleton) {
     pendingFocus = false;
@@ -56,9 +54,6 @@ function toggleCompare(id) {
   return a.includes(id);
 }
 function loading() {
-  // No primeiro carregamento o SSR já pintou conteúdo real — não o troque por skeleton
-  // (evita o flash conteúdo→skeleton→conteúdo e preserva o LCP).
-  if (ssrFirstPaint) { ssrFirstPaint = false; return; }
   const cards = Array.from({ length: 8 }).map(() => `<div class="skel-card"><div class="skel skel-img"></div><div class="skel skel-line"></div><div class="skel skel-line short"></div></div>`).join('');
   mount(`<div class="container"><div class="skel skel-hero"></div><div class="product-grid" style="margin-top:24px">${cards}</div><p class="muted center" id="coldHint" style="margin-top:18px;opacity:0;transition:opacity .4s">Preparando a loja… na primeira visita pode levar alguns segundos.</p></div>`, { skeleton: true });
   setTimeout(() => { const h = document.getElementById('coldHint'); if (h) h.style.opacity = '1'; }, 2500);
@@ -1019,6 +1014,7 @@ Pages.checkout = async function () {
   if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('/checkout'));
   loading();
   if (!Flow.cep) Flow.cep = savedCep(); // CEP digitado na PDP/visita anterior já entra no frete
+  if (!Flow.cpf && Store.user && Store.user.cpf_cnpj) Flow.cpf = Store.user.cpf_cnpj; // CPF do cadastro
   const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon, payment: Flow.payment, cep: Flow.cep, cpf: Flow.cpf }));
   if (!data.items.length) return go('/carrinho');
   await Store.refreshUser();
@@ -1031,7 +1027,7 @@ Pages.checkout = async function () {
         <div class="panel">
           <h3>${icon('truck', 18)} Endereço de entrega</h3>
           <div class="field"><label>Nome completo</label><input id="s_name" value="${escapeHtml(Store.user.name)}" autocomplete="name"></div>
-          <div class="field"><label>CPF/CNPJ <span class="muted" style="font-weight:400">(para nota fiscal e cupons exclusivos)</span></label><input id="s_cpf" placeholder="000.000.000-00" value="${escapeHtml(Flow.cpf || '')}" inputmode="numeric"></div>
+          <div class="field"><label>CPF/CNPJ <span class="muted" style="font-weight:400">(para nota fiscal e cupons exclusivos)</span></label><input id="s_cpf" placeholder="000.000.000-00" value="${escapeHtml(Mask.cpfCnpj(Flow.cpf || ''))}" inputmode="numeric"></div>
           <div class="grid-2">
             <div class="field"><label>CEP</label><input id="s_cep" placeholder="00000-000" inputmode="numeric" autocomplete="postal-code" value="${escapeHtml(Mask.cep(Flow.cep || ''))}"><span id="cepHint" class="muted" style="font-size:12.5px" aria-live="polite"></span></div>
             <div class="field"><label>Telefone</label><input id="s_phone" placeholder="(00) 00000-0000" inputmode="tel" autocomplete="tel-national"></div>
@@ -1181,6 +1177,7 @@ async function placeOrder() {
   // Validação inline: TODOS os campos de uma vez, erro sob cada campo, foco no primeiro.
   const checks = [
     ['#s_name', !!ship.name, 'Informe o nome completo.'],
+    ['#s_cpf', !$('#s_cpf').value.trim() || validDoc($('#s_cpf').value), 'CPF/CNPJ inválido — confira os números.'],
     ['#s_cep', ship.cep.replace(/\D/g, '').length === 8, 'Informe um CEP válido (8 dígitos).'],
     ['#s_address', !!ship.address, 'Informe rua, número e bairro.'],
     ['#s_city', !!ship.city, 'Informe a cidade.'],
@@ -1433,7 +1430,19 @@ Pages.account = async function () {
         <div class="panel">
           <h3>${icon('user', 18)} Dados</h3>
           <div class="grid-2"><div><span class="muted" style="font-size:13px">Nome</span><br><b>${escapeHtml(u.name)}</b></div><div><span class="muted" style="font-size:13px">E-mail</span><br><b>${escapeHtml(u.email)}</b></div></div>
-          <div style="margin-top:14px"><span class="muted" style="font-size:13px">Tipo de conta</span><br><span class="chip">${u.role === 'admin' ? 'Administrador' : 'Cliente'}</span></div>
+          <div class="grid-2" style="margin-top:14px">
+            <div><span class="muted" style="font-size:13px">Tipo de conta</span><br><span class="chip">${u.role === 'admin' ? 'Administrador' : 'Cliente'}</span></div>
+            ${u.cpf_cnpj ? `<div><span class="muted" style="font-size:13px">CPF/CNPJ</span><br><b>${escapeHtml(Mask.cpfCnpj(u.cpf_cnpj))}</b></div>` : ''}
+          </div>
+        </div>
+        <div class="panel">
+          <h3>${icon('shield', 18)} Segurança</h3>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px"><b>Verificação em 2 etapas (2FA)</b><div class="muted" style="font-size:13px">Um código do app autenticador a cada login — protege a conta mesmo se a senha vazar.</div></div>
+            ${u.totp_enabled ? `<span class="chip" style="background:var(--green-100);color:var(--green-800)">${icon('check', 12)} Ativo</span>` : ''}
+            <button class="btn ${u.totp_enabled ? 'btn-ghost' : 'btn-primary'} btn-sm" id="tfaBtn">${u.totp_enabled ? 'Desativar' : 'Ativar 2FA'}</button>
+          </div>
+          <div id="tfaFlow"></div>
         </div>
         <div class="panel">
           <div class="panel-head"><h3 style="margin:0">${icon('box', 18)} Últimos pedidos</h3><a href="/pedidos" class="btn btn-ghost btn-sm">Ver todos</a></div>
@@ -1454,7 +1463,74 @@ Pages.account = async function () {
   app.querySelector('#acctLogout').addEventListener('click', () => { Store.logout(); renderHeader(); go('/'); });
   const rv = app.querySelector('#resendVerify');
   if (rv) rv.addEventListener('click', async () => { try { await API.post('/auth/resend-verification'); toast('E-mail enviado!', 'Verifique sua caixa de entrada.', 'ok'); } catch (e) { toast('Ops', e.message, 'err'); } });
+
+  // ---- 2FA: ativação (QR + código) e desativação (código) ----
+  const tfaBtn = app.querySelector('#tfaBtn');
+  if (tfaBtn) tfaBtn.addEventListener('click', async () => {
+    const flow = app.querySelector('#tfaFlow');
+    if (flow.dataset.open) { flow.innerHTML = ''; delete flow.dataset.open; return; }
+    flow.dataset.open = '1';
+    if (u.totp_enabled) {
+      flow.innerHTML = `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+        <p class="muted" style="font-size:13.5px;margin:0 0 10px">Para desativar, digite o código atual do seu app autenticador.</p>
+        <form id="tfaOff" style="display:flex;gap:8px;flex-wrap:wrap">
+          <input id="tfaOffCode" class="tfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="Código do autenticador">
+          <button type="submit" class="btn btn-primary btn-sm">Confirmar desativação</button>
+        </form></div>`;
+      flow.querySelector('#tfaOff').addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        try {
+          await API.post('/auth/2fa/disable', { code: flow.querySelector('#tfaOffCode').value.trim() });
+          toast('2FA desativado', 'Sua conta voltou a usar apenas a senha.', 'info');
+          Pages.account();
+        } catch (e) { toast('Ops', e.message, 'err'); }
+      });
+    } else {
+      tfaBtn.disabled = true;
+      try {
+        const s = await API.post('/auth/2fa/setup');
+        flow.innerHTML = `<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+          <p style="font-size:13.5px;margin:0 0 10px"><b>1.</b> Escaneie o QR code no seu app autenticador (Google Authenticator, Authy, 1Password…)</p>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+            <div id="tfaQr"></div>
+            <div style="flex:1;min-width:200px">
+              <p class="muted" style="font-size:12.5px;margin:0 0 6px">Ou digite a chave manualmente:</p>
+              <code style="font-size:12px;word-break:break-all;background:var(--green-50);padding:6px 8px;border-radius:8px;display:block">${escapeHtml(s.secret)}</code>
+            </div>
+          </div>
+          <p style="font-size:13.5px;margin:14px 0 8px"><b>2.</b> Digite o código de 6 dígitos que aparece no app:</p>
+          <form id="tfaOn" style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="tfaOnCode" class="tfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="Código do autenticador">
+            <button type="submit" class="btn btn-primary btn-sm">Ativar 2FA</button>
+          </form></div>`;
+        if (await loadQRLib()) new QRCode(flow.querySelector('#tfaQr'), { text: s.otpauth, width: 168, height: 168 });
+        else flow.querySelector('#tfaQr').innerHTML = `<span class="muted" style="font-size:12px">QR indisponível — use a chave manual ao lado.</span>`;
+        flow.querySelector('#tfaOn').addEventListener('submit', async (ev) => {
+          ev.preventDefault();
+          try {
+            await API.post('/auth/2fa/enable', { code: flow.querySelector('#tfaOnCode').value.trim() });
+            toast('2FA ativado! 🛡️', 'A partir de agora o login pede o código do app.', 'ok');
+            Pages.account();
+          } catch (e) { toast('Ops', e.message, 'err'); }
+        });
+      } catch (e) { toast('Ops', e.message, 'err'); flow.innerHTML = ''; delete flow.dataset.open; }
+      tfaBtn.disabled = false;
+    }
+  });
 };
+// Carrega a lib de QR code sob demanda (cdnjs — mesmo padrão lazy do ethers).
+async function loadQRLib() {
+  if (window.QRCode) return true;
+  try {
+    await new Promise((ok, bad) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+      sc.onload = ok; sc.onerror = bad;
+      document.head.appendChild(sc);
+    });
+  } catch (_) {}
+  return !!window.QRCode;
+}
 
 /* ---------- WALLET ---------- */
 Pages.wallet = async function () {
@@ -1528,6 +1604,44 @@ Pages.favorites = async function () {
 };
 
 /* ---------- AUTH ---------- */
+/* ---------- Validação de CPF/CNPJ no cliente (espelho do servidor) ---------- */
+function validDoc(v) {
+  const d = String(v || '').replace(/\D/g, '');
+  if (d.length === 11) {
+    if (/^(\d)\1{10}$/.test(d)) return false;
+    const dv = (l) => { let s = 0; for (let i = 0; i < l; i++) s += +d[i] * (l + 1 - i); const r = s % 11; return r < 2 ? 0 : 11 - r; };
+    return dv(9) === +d[9] && dv(10) === +d[10];
+  }
+  if (d.length === 14) {
+    if (/^(\d)\1{13}$/.test(d)) return false;
+    const c = (w) => { let s = 0; w.forEach((p, i) => { s += p * +d[i]; }); const r = s % 11; return r < 2 ? 0 : 11 - r; };
+    return c([5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === +d[12] && c([6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) === +d[13];
+  }
+  return false;
+}
+
+/* ---------- Força da senha (feedback visual; a regra dura é do servidor) ---------- */
+function pwStrength(p) {
+  if (!p) return null;
+  if (p.length < 8) return { pct: 25, cls: 'weak', label: 'Fraca — use pelo menos 8 caracteres' };
+  const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^a-zA-Z0-9]/].filter(re => re.test(p)).length;
+  if (p.length >= 14 || (p.length >= 12 && classes >= 3)) return { pct: 100, cls: 'strong', label: 'Forte' };
+  return { pct: 60, cls: 'mid', label: 'Média — 12+ caracteres com letras, números e símbolos fica forte' };
+}
+function wirePwMeter(box, inputId) {
+  const inp = box.querySelector('#' + inputId);
+  const meter = box.querySelector('#pwMeter');
+  if (!inp || !meter) return;
+  inp.addEventListener('input', () => {
+    const s = pwStrength(inp.value);
+    meter.hidden = !s;
+    if (!s) return;
+    meter.className = 'pw-meter ' + s.cls;
+    meter.querySelector('span').style.width = s.pct + '%';
+    meter.querySelector('small').textContent = s.label;
+  });
+}
+
 /* ---------- Campo de senha com mostrar/ocultar (compartilhado: entrar, cadastro, redefinir) ---------- */
 function passField(id, label, placeholder, autocomplete) {
   return `<div class="field"><label for="${id}">${label}</label><div class="pass-wrap">
@@ -1562,6 +1676,36 @@ Pages.auth = function (query) {
     btn.disabled = true; btn.textContent = busyLabel;
     try { await fn(); } catch (e) { btn.disabled = false; btn.innerHTML = original; throw e; }
   }
+  // Pós-login comum (login direto, 2FA e cadastro).
+  async function finishLogin(r, msg) {
+    Store.setSession(r.token, r.user);
+    await Store.refreshFavorites(); await Store.mergeGuestToServer(); await Store.refreshCart(); await Store.refreshFavorites(); renderHeader();
+    toast(msg || ('Olá, ' + r.user.name.split(' ')[0] + '!'), '', 'ok');
+    go(decodeURIComponent(next).replace(/^#/, '') || '/');
+  }
+  // Etapa 2 do login (2FA): pede o código de 6 dígitos do app autenticador.
+  function renderTwofa(tmpToken) {
+    const box = app.querySelector('#authForm');
+    box.innerHTML = `<h1>Verificação em 2 etapas</h1>
+      <p class="muted" style="margin:0 0 18px">Abra seu app autenticador (Google Authenticator, Authy…) e digite o código de 6 dígitos.</p>
+      <form id="twofaForm" novalidate>
+      <div class="field"><label for="tf_code">Código</label><input id="tf_code" class="tfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" style="margin:0 auto"></div>
+      <button type="submit" class="btn btn-primary btn-block btn-lg" id="tfBtn">Confirmar</button>
+      </form>
+      <p style="text-align:center;margin-top:12px"><a href="/entrar" style="color:var(--green-700);font-weight:600;font-size:13.5px">Voltar ao login</a></p>`;
+    const inp = box.querySelector('#tf_code');
+    inp.focus();
+    box.querySelector('#twofaForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      if (inp.value.replace(/\D/g, '').length !== 6) return fieldError(inp, 'Digite os 6 dígitos do app.');
+      try {
+        await submitWith(box.querySelector('#tfBtn'), 'Verificando…', async () => {
+          const r2 = await API.post('/auth/login/2fa', { tmpToken, code: inp.value.trim() });
+          await finishLogin(r2);
+        });
+      } catch (e) { toast('Verificação falhou', e.message, 'err'); inp.select(); }
+    });
+  }
   function renderForm(which) {
     const box = app.querySelector('#authForm');
     if (which === 'login') {
@@ -1583,8 +1727,8 @@ Pages.auth = function (query) {
         try {
           await submitWith(box.querySelector('#loginBtn'), 'Entrando…', async () => {
             const r = await API.post('/auth/login', { email: email.value.trim(), password: pass.value });
-            Store.setSession(r.token, r.user); await Store.refreshFavorites(); await Store.mergeGuestToServer(); await Store.refreshCart(); await Store.refreshFavorites(); renderHeader();
-            toast('Olá, ' + r.user.name.split(' ')[0] + '!', '', 'ok'); go(decodeURIComponent(next).replace(/^#/, '') || '/');
+            if (r.twofa) { renderTwofa(r.tmpToken); return; } // conta protegida: pede o código do app
+            await finishLogin(r);
           });
         } catch (e) { toast('Falha no login', e.message, 'err'); }
       });
@@ -1593,22 +1737,34 @@ Pages.auth = function (query) {
         <form id="regForm" novalidate>
         <div class="field"><label for="r_name">Nome completo</label><input id="r_name" autocomplete="name"></div>
         <div class="field"><label for="r_email">E-mail</label><input id="r_email" type="email" autocomplete="email" inputmode="email"></div>
-        ${passField('r_pass', 'Senha', 'Mínimo 6 caracteres', 'new-password')}
+        <div class="grid-2">
+          <div class="field"><label for="r_doc">CPF/CNPJ <span class="muted" style="font-weight:400">(opcional)</span></label><input id="r_doc" inputmode="numeric" placeholder="000.000.000-00"></div>
+          <div class="field"><label for="r_phone">Celular <span class="muted" style="font-weight:400">(opcional)</span></label><input id="r_phone" inputmode="tel" autocomplete="tel-national" placeholder="(00) 00000-0000"></div>
+        </div>
+        ${passField('r_pass', 'Senha', 'Mínimo 8 caracteres', 'new-password')}
+        <div class="pw-meter" id="pwMeter" hidden><div class="bar"><span></span></div><small></small></div>
+        <p class="muted" style="font-size:12px;margin:2px 0 12px">Usamos seus dados apenas para processar pedidos, emitir nota fiscal e entregar sua compra, conforme a LGPD. <a href="/privacidade" style="color:var(--green-700);font-weight:600">Política de Privacidade</a></p>
         <button type="submit" class="btn btn-primary btn-block btn-lg" id="regBtn">Criar conta</button>
         </form>`;
       wireEyes(box);
+      wirePwMeter(box, 'r_pass');
+      applyMask(box.querySelector('#r_doc'), Mask.cpfCnpj);
+      applyMask(box.querySelector('#r_phone'), Mask.phone);
       box.querySelector('#regForm').addEventListener('submit', async (ev) => {
         ev.preventDefault();
-        const name = app.querySelector('#r_name'), email = app.querySelector('#r_email'), pass = app.querySelector('#r_pass');
+        const name = app.querySelector('#r_name'), email = app.querySelector('#r_email'), pass = app.querySelector('#r_pass'), doc = app.querySelector('#r_doc');
         fieldError(name, name.value.trim() ? '' : 'Informe seu nome.');
         fieldError(email, /.+@.+\..+/.test(email.value.trim()) ? '' : 'Informe um e-mail válido.');
-        fieldError(pass, pass.value.length >= 6 ? '' : 'A senha precisa de pelo menos 6 caracteres.');
-        if (!name.value.trim() || !/.+@.+\..+/.test(email.value.trim()) || pass.value.length < 6) return;
+        fieldError(pass, pass.value.length >= 8 ? '' : 'A senha precisa de pelo menos 8 caracteres.');
+        fieldError(doc, !doc.value.trim() || validDoc(doc.value) ? '' : 'CPF/CNPJ inválido — confira os números.');
+        if (!name.value.trim() || !/.+@.+\..+/.test(email.value.trim()) || pass.value.length < 8 || (doc.value.trim() && !validDoc(doc.value))) return;
         try {
           await submitWith(box.querySelector('#regBtn'), 'Criando conta…', async () => {
-            const r = await API.post('/auth/register', { name: name.value.trim(), email: email.value.trim(), password: pass.value });
-            Store.setSession(r.token, r.user); await Store.mergeGuestToServer(); await Store.refreshCart(); await Store.refreshFavorites(); renderHeader();
-            toast('Conta criada!', 'Você ganhou 150 NTR 🌱', 'ok'); go(decodeURIComponent(next).replace(/^#/, '') || '/');
+            const r = await API.post('/auth/register', {
+              name: name.value.trim(), email: email.value.trim(), password: pass.value,
+              cpf_cnpj: doc.value.trim(), phone: app.querySelector('#r_phone').value.trim()
+            });
+            await finishLogin(r, 'Conta criada! Você ganhou 150 NTR 🌱');
           });
         } catch (e) { toast('Não foi possível cadastrar', e.message, 'err'); }
       });
@@ -1641,11 +1797,13 @@ Pages.reset = function (query) {
   mount(`<div class="container"><div class="auth-wrap">
     <h1>Redefinir senha</h1><p class="muted" style="margin:0 0 18px">Crie uma nova senha para sua conta.</p>
     <form id="rsForm" novalidate>
-    ${passField('rs_pass', 'Nova senha', 'Mínimo 6 caracteres', 'new-password')}
+    ${passField('rs_pass', 'Nova senha', 'Mínimo 8 caracteres', 'new-password')}
+    <div class="pw-meter" id="pwMeter" hidden><div class="bar"><span></span></div><small></small></div>
     <button type="submit" class="btn btn-primary btn-block btn-lg" id="rsBtn">Salvar nova senha</button>
     </form>
   </div></div>`);
   wireEyes(app.querySelector('#rsForm'));
+  wirePwMeter(app.querySelector('#rsForm'), 'rs_pass');
   app.querySelector('#rsForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     try { await API.post('/auth/reset', { token, password: app.querySelector('#rs_pass').value }); toast('Senha alterada!', 'Já pode entrar com a nova senha.', 'ok'); go('/entrar'); }
@@ -2003,6 +2161,12 @@ function setupErrorReporting() {
 (async function boot() {
   setupErrorReporting();
   if (location.hash.startsWith('#/')) history.replaceState({}, '', location.hash.slice(1)); // migra links antigos #/ -> /
+  // Pinta a "casca" IMEDIATAMENTE (header, rodapé e skeleton) para o visitante nunca
+  // ver o snapshot SSR cru — o texto sem layout que aparecia antes do app montar.
+  // O SSR continua no HTML para Google/IAs; humanos veem o layout desde o 1º instante.
+  renderHeader();
+  renderFooter();
+  loading();
   await Store.init();
   // Link de afiliado: ?ref=CUPOM aplica o cupom automaticamente no checkout.
   try {

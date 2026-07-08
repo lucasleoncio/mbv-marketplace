@@ -71,7 +71,10 @@ router.get('/favorites/list', (req, res) => {
     JOIN products p ON p.id = f.product_id LEFT JOIN categories c ON c.id = p.category_id
     WHERE f.user_id = ? AND p.active = 1 ORDER BY f.id DESC
   `).all(req.user.id);
-  res.json({ items });
+  // BUG corrigido: sem serialize, badges/gallery/specs iam como string JSON e o
+  // productCard quebrava — a página de favoritos ficava vazia para usuário logado.
+  const { serialize } = require('./products');
+  res.json({ items: items.map(serialize) });
 });
 
 router.post('/favorites/:productId', (req, res) => {

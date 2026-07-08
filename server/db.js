@@ -222,6 +222,13 @@ for (const stmt of [
   'ALTER TABLE products ADD COLUMN specs TEXT',
   'ALTER TABLE products ADD COLUMN mapa_reg TEXT',
   'ALTER TABLE orders ADD COLUMN ship_prazo TEXT',
+  'ALTER TABLE users ADD COLUMN cpf_cnpj TEXT',
+  'ALTER TABLE users ADD COLUMN totp_secret TEXT',
+  'ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE users ADD COLUMN totp_pending_secret TEXT',
+  'ALTER TABLE users ADD COLUMN totp_pending_expires TEXT',
+  'ALTER TABLE users ADD COLUMN totp_last_step INTEGER NOT NULL DEFAULT 0',
+  'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_doc ON users(cpf_cnpj) WHERE cpf_cnpj IS NOT NULL',
   'ALTER TABLE cart_items ADD COLUMN created_at TEXT',
   'ALTER TABLE cart_items ADD COLUMN notified INTEGER NOT NULL DEFAULT 0'
 ]) { try { db.exec(stmt); } catch (_) {} }

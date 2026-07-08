@@ -50,6 +50,18 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .spec-table td:first-child{color:var(--muted);width:40%;font-weight:600}
 .mapa-box{display:flex;gap:10px;align-items:flex-start;background:var(--green-50);border:1px solid var(--green-100);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13.5px;color:var(--green-800)}
 .mapa-box a{color:var(--green-700);font-weight:600}
+/* Medidor de força da senha */
+.pw-meter{margin:-6px 0 12px}
+.pw-meter .bar{height:6px;border-radius:4px;background:var(--line);overflow:hidden}
+.pw-meter .bar span{display:block;height:100%;width:0;border-radius:4px;transition:width .25s ease,background .25s ease}
+.pw-meter.weak .bar span{background:var(--danger)}
+.pw-meter.mid .bar span{background:var(--warn)}
+.pw-meter.strong .bar span{background:var(--green-600)}
+.pw-meter small{color:var(--muted);font-size:12px;display:block;margin-top:4px}
+/* 2FA: campo de código e QR */
+.tfa-code{letter-spacing:6px;text-align:center;font-size:20px;max-width:190px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;font-family:inherit}
+#tfaQr{background:#fff;padding:10px;border:1px solid var(--line);border-radius:12px;width:fit-content}
+#tfaQr img,#tfaQr canvas{display:block}
 /* Avise-me quando chegar (produto esgotado) */
 .notify-box{margin-top:14px;background:#fdf7e8;border:1px solid #f0e3bd;border-radius:12px;padding:14px 16px}
 .notify-box b{display:flex;align-items:center;gap:6px;color:#7a5a10;font-size:14px}

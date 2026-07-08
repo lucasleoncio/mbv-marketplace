@@ -289,3 +289,4 @@ router.delete('/:id', requireAdmin, (req, res) => {
 });
 
 module.exports = router;
+module.exports.serialize = serialize; // reutilizado por rotas que devolvem produtos (ex.: favoritos)

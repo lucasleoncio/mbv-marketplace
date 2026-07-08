@@ -147,6 +147,19 @@ test('avise-me quando chegar: registra p/ esgotado, recusa em estoque, dispara n
   assert.equal((await ctx.api('POST', '/products/8/notify', { body: { email: 'p2@teste.com' } })).status, 400, 'em estoque -> não registra');
 });
 
+test('favoritos: adicionar, listar serializado e remover', async () => {
+  const add = await ctx.api('POST', '/cart/favorites/1', { token: cliente });
+  assert.equal(add.status, 200);
+  assert.equal(add.data.favorited, true);
+  const list = await ctx.api('GET', '/cart/favorites/list', { token: cliente });
+  assert.equal(list.status, 200);
+  assert.equal(list.data.items.length, 1);
+  assert.ok(Array.isArray(list.data.items[0].badges), 'badges deve vir como array (string JSON quebrava a página de favoritos)');
+  assert.ok(Array.isArray(list.data.items[0].gallery), 'gallery deve vir como array');
+  const rm = await ctx.api('POST', '/cart/favorites/1', { token: cliente });
+  assert.equal(rm.data.favorited, false);
+});
+
 test('cupons: relatório é só do admin', async () => {
   assert.equal((await ctx.api('GET', '/coupons/report', { token: admin })).status, 200);
   assert.equal((await ctx.api('GET', '/coupons/report', { token: cliente })).status, 403);
@@ -156,4 +169,67 @@ test('pedidos: cliente lista os próprios pedidos', async () => {
   const r = await ctx.api('GET', '/orders', { token: cliente });
   assert.equal(r.status, 200);
   assert.ok(r.data.orders.length >= 4);
+});
+
+test('registro: política de senha e CPF válido aplicados', async () => {
+  const base = { name: 'Novo Produtor', email: 'novo@teste.com' };
+  assert.equal((await ctx.api('POST', '/auth/register', { body: { ...base, password: 'curta1' } })).status, 400, 'senha curta -> 400');
+  assert.equal((await ctx.api('POST', '/auth/register', { body: { ...base, password: 'senha1234' } })).status, 400, 'senha comum -> 400');
+  assert.equal((await ctx.api('POST', '/auth/register', { body: { ...base, password: 'trator verde 42', cpf_cnpj: '111.111.111-11' } })).status, 400, 'CPF inválido -> 400');
+  const ok = await ctx.api('POST', '/auth/register', { body: { ...base, password: 'trator verde 42', cpf_cnpj: '529.982.247-25', phone: '(11) 98888-7777' } });
+  assert.equal(ok.status, 201);
+  assert.equal(ok.data.user.cpf_cnpj, '52998224725');
+  assert.equal(ok.data.user.totp_enabled, false);
+  const dup = await ctx.api('POST', '/auth/register', { body: { name: 'Outro', email: 'outro@teste.com', password: 'trator verde 43', cpf_cnpj: '529.982.247-25' } });
+  assert.equal(dup.status, 409, 'CPF duplicado -> 409');
+});
+
+test('2FA: ciclo completo — ativar, login em 2 etapas, replay bloqueado, desativar', async () => {
+  const totp = require('../lib/totp');
+  // evita flakiness na borda dos 30s: se faltar <3s para o próximo passo, espera
+  if (Date.now() % 30000 > 27000) await new Promise(r => setTimeout(r, 3200));
+
+  const reg = await ctx.api('POST', '/auth/register', { body: { name: 'Usuária 2FA', email: 'dois.fatores@teste.com', password: 'lavoura segura 7' } });
+  assert.equal(reg.status, 201);
+  const tok = reg.data.token;
+
+  // setup -> secret pendente (ainda não ativo)
+  const setup = await ctx.api('POST', '/auth/2fa/setup', { token: tok });
+  assert.equal(setup.status, 200);
+  assert.match(setup.data.secret, /^[A-Z2-7]{32}$/);
+  assert.match(setup.data.otpauth, /^otpauth:\/\/totp\/MBV:/);
+
+  // ativa confirmando um código (passo anterior da janela — deixa os próximos livres)
+  const s0 = totp.stepAt() - 1;
+  const en = await ctx.api('POST', '/auth/2fa/enable', { token: tok, body: { code: totp.hotp(setup.data.secret, s0) } });
+  assert.equal(en.status, 200);
+
+  // login agora exige a 2ª etapa e NÃO entrega token de sessão
+  const lg = await ctx.api('POST', '/auth/login', { body: { email: 'dois.fatores@teste.com', password: 'lavoura segura 7' } });
+  assert.equal(lg.status, 200);
+  assert.equal(lg.data.twofa, true);
+  assert.ok(!lg.data.token, 'não pode vazar token de sessão antes do código');
+
+  // o token temporário de escopo 2fa NÃO serve como sessão
+  const spoof = await ctx.api('GET', '/auth/me', { token: lg.data.tmpToken });
+  assert.equal(spoof.status, 401, 'tmpToken de escopo 2fa não pode virar sessão');
+
+  // código errado -> recusado; código certo -> sessão
+  const bad = await ctx.api('POST', '/auth/login/2fa', { body: { tmpToken: lg.data.tmpToken, code: '000000' } });
+  assert.ok([400, 401].includes(bad.status));
+  const s1 = totp.stepAt(); // passo atual (maior que s0)
+  const good = await ctx.api('POST', '/auth/login/2fa', { body: { tmpToken: lg.data.tmpToken, code: totp.hotp(setup.data.secret, s1) } });
+  assert.equal(good.status, 200);
+  assert.ok(good.data.token);
+
+  // REPLAY do mesmo código na mesma janela: bloqueado
+  const lg2 = await ctx.api('POST', '/auth/login', { body: { email: 'dois.fatores@teste.com', password: 'lavoura segura 7' } });
+  const replay = await ctx.api('POST', '/auth/login/2fa', { body: { tmpToken: lg2.data.tmpToken, code: totp.hotp(setup.data.secret, s1) } });
+  assert.equal(replay.status, 401, 'mesmo código não pode valer duas vezes');
+
+  // desativa com código do próximo passo da janela (+1)
+  const off = await ctx.api('POST', '/auth/2fa/disable', { token: good.data.token, body: { code: totp.hotp(setup.data.secret, s1 + 1) } });
+  assert.equal(off.status, 200);
+  const lg3 = await ctx.api('POST', '/auth/login', { body: { email: 'dois.fatores@teste.com', password: 'lavoura segura 7' } });
+  assert.ok(lg3.data.token, 'sem 2FA o login volta a ser direto');
 });

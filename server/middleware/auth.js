@@ -9,6 +9,8 @@ function authOptional(req, _res, next) {
   if (token) {
     try {
       const payload = jwt.verify(token, JWT_SECRET);
+      // Tokens de escopo restrito (ex.: etapa intermediária do 2FA) NUNCA viram sessão.
+      if (payload.scope) return next();
       const user = db.prepare('SELECT id, name, email, role, mbv_balance, wallet_address, phone FROM users WHERE id = ?').get(payload.id);
       if (user) req.user = user;
     } catch (_) { /* token inválido => segue como visitante */ }

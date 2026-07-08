@@ -7,6 +7,7 @@ const path = require('path');
 
 function startApp(env = {}) {
   process.env.MBV_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'mbvtest-'));
+  process.env.AUTH_RATE_MAX = '1000'; // testes fazem muitas chamadas de auth; o limite real segue 12/min
   Object.assign(process.env, env);
   const app = require('../index'); // exporta o app sem listen (require.main !== module)
   return new Promise((resolve) => {

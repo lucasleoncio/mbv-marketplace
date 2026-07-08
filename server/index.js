@@ -41,9 +41,9 @@ app.use(authOptional);
 
 // --- Rate limiting (store em memória; em multi-instância, use store compartilhado) ---
 const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false, message: { error: 'Muitas requisições. Aguarde um instante.' } });
-const authLimiter = rateLimit({ windowMs: 60 * 1000, max: 12, standardHeaders: true, legacyHeaders: false, message: { error: 'Muitas tentativas. Tente novamente em alguns minutos.' } });
+const authLimiter = rateLimit({ windowMs: 60 * 1000, max: Number(process.env.AUTH_RATE_MAX || 12), standardHeaders: true, legacyHeaders: false, message: { error: 'Muitas tentativas. Tente novamente em alguns minutos.' } });
 app.use('/api/', apiLimiter);
-app.use(['/api/auth/login', '/api/auth/register', '/api/auth/forgot', '/api/auth/resend-verification'], authLimiter);
+app.use(['/api/auth/login', '/api/auth/login/2fa', '/api/auth/register', '/api/auth/forgot', '/api/auth/resend-verification'], authLimiter);
 
 // Arquivos enviados pelo admin (imagens de produtos)
 app.use('/uploads', express.static(process.env.MBV_UPLOAD_DIR || path.join(__dirname, 'uploads')));
