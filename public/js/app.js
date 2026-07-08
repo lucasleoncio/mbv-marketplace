@@ -1314,6 +1314,25 @@ Pages.favorites = async function () {
 };
 
 /* ---------- AUTH ---------- */
+/* ---------- Campo de senha com mostrar/ocultar (compartilhado: entrar, cadastro, redefinir) ---------- */
+function passField(id, label, placeholder, autocomplete) {
+  return `<div class="field"><label for="${id}">${label}</label><div class="pass-wrap">
+    <input id="${id}" type="password" placeholder="${placeholder}" autocomplete="${autocomplete}">
+    <button type="button" class="pass-eye" data-eye="${id}" aria-label="Mostrar senha" aria-pressed="false">${icon('eye', 17)}</button>
+  </div></div>`;
+}
+function wireEyes(box) {
+  box.querySelectorAll('[data-eye]').forEach(b => b.addEventListener('click', () => {
+    const inp = box.querySelector('#' + b.dataset.eye);
+    const show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    b.setAttribute('aria-pressed', String(show));
+    b.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha');
+    b.innerHTML = icon(show ? 'eyeOff' : 'eye', 17);
+    inp.focus();
+  }));
+}
+
 Pages.auth = function (query) {
   const tab = query.tab === 'register' ? 'register' : 'login';
   const next = query.next || '/';
@@ -1323,24 +1342,6 @@ Pages.auth = function (query) {
     <div id="authForm"></div>
   </div></div>`);
 
-  // Campo de senha com botão mostrar/ocultar (a11y: aria-pressed + rótulo).
-  function passField(id, label, placeholder, autocomplete) {
-    return `<div class="field"><label for="${id}">${label}</label><div class="pass-wrap">
-      <input id="${id}" type="password" placeholder="${placeholder}" autocomplete="${autocomplete}">
-      <button type="button" class="pass-eye" data-eye="${id}" aria-label="Mostrar senha" aria-pressed="false">${icon('eye', 17)}</button>
-    </div></div>`;
-  }
-  function wireEyes(box) {
-    box.querySelectorAll('[data-eye]').forEach(b => b.addEventListener('click', () => {
-      const inp = box.querySelector('#' + b.dataset.eye);
-      const show = inp.type === 'password';
-      inp.type = show ? 'text' : 'password';
-      b.setAttribute('aria-pressed', String(show));
-      b.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha');
-      b.innerHTML = icon(show ? 'eyeOff' : 'eye', 17);
-      inp.focus();
-    }));
-  }
   // Submit com estado de carregamento (evita clique duplo) e restauração em erro.
   async function submitWith(btn, busyLabel, fn) {
     const original = btn.innerHTML;
@@ -1426,10 +1427,11 @@ Pages.reset = function (query) {
   mount(`<div class="container"><div class="auth-wrap">
     <h1>Redefinir senha</h1><p class="muted" style="margin:0 0 18px">Crie uma nova senha para sua conta.</p>
     <form id="rsForm" novalidate>
-    <div class="field"><label for="rs_pass">Nova senha</label><input id="rs_pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>
+    ${passField('rs_pass', 'Nova senha', 'Mínimo 6 caracteres', 'new-password')}
     <button type="submit" class="btn btn-primary btn-block btn-lg" id="rsBtn">Salvar nova senha</button>
     </form>
   </div></div>`);
+  wireEyes(app.querySelector('#rsForm'));
   app.querySelector('#rsForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     try { await API.post('/auth/reset', { token, password: app.querySelector('#rs_pass').value }); toast('Senha alterada!', 'Já pode entrar com a nova senha.', 'ok'); go('/entrar'); }
