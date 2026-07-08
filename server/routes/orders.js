@@ -106,12 +106,18 @@ router.post('/', requireAuth, async (req, res) => {
     db.prepare('UPDATE orders SET code = ?, pix_code = ?, chain_id = ?, cpf_cnpj = ? WHERE id = ?')
       .run(code, pixCode, onchain ? CHAIN.chainId : null, cpf.replace(/\D/g, '') || null, orderId);
 
-    // Itens + baixa de estoque
+    // Itens + baixa de estoque ATÔMICA: o WHERE stock >= ? impede oversell
+    // (a checagem no topo do handler é só UX; esta é a garantia real, segura também sob driver async/Postgres).
     const insItem = db.prepare('INSERT INTO order_items (order_id, product_id, name, price, quantity, unit, image) VALUES (?,?,?,?,?,?,?)');
-    const decStock = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?');
+    const decStock = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?');
     for (const it of items) {
       insItem.run(orderId, it.product_id, it.name, it.price, it.quantity, it.unit, it.image);
-      decStock.run(it.quantity, it.product_id);
+      const dec = decStock.run(it.quantity, it.product_id, it.quantity);
+      if (dec.changes !== 1) {
+        const err = new Error(`Estoque insuficiente para "${it.name}". Ajuste a quantidade no carrinho.`);
+        err.code = 'OUT_OF_STOCK';
+        throw err; // aborta a transação inteira (rollback)
+      }
     }
 
     // Pagamento em NTR no modo simulado debita o saldo interno.
@@ -139,15 +145,21 @@ router.post('/', requireAuth, async (req, res) => {
     res.status(201).json({ order: orderWithItems(orderId), token: TOKEN, onchain });
   } catch (e) {
     if (e.code === 'INSUFFICIENT_FUNDS') return res.status(400).json({ error: 'Saldo de NTR insuficiente.' });
+    if (e.code === 'OUT_OF_STOCK') return res.status(400).json({ error: e.message });
     console.error(e);
     res.status(500).json({ error: 'Não foi possível concluir o pedido.' });
   }
 });
 
-// POST /api/orders/:id/confirm-pix  -> simula confirmação do Pix
+// POST /api/orders/:id/confirm-pix  -> simula confirmação do Pix (SÓ em modo demonstração)
 router.post('/:id/confirm-pix', requireAuth, (req, res) => {
+  // GO-LIVE: fora do demo (ou com Mercado Pago ativo), a confirmação real chega pelo webhook.
+  // Sem este gate, qualquer cliente autenticado marcaria o próprio pedido como pago.
+  if (!DEMO_MODE || MP.enabled)
+    return res.status(409).json({ error: 'A confirmação do Pix é automática após o pagamento — aguarde alguns instantes.' });
   const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
   if (!order) return res.status(404).json({ error: 'Pedido não encontrado.' });
+  if (order.payment_method !== 'pix') return res.status(400).json({ error: 'Este pedido não é um pagamento Pix.' });
   if (order.payment_status === 'paid') return res.json({ order: orderWithItems(order.id) });
   db.prepare("UPDATE orders SET payment_status = 'paid' WHERE id = ?").run(order.id);
   payCashback(order);

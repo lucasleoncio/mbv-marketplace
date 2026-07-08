@@ -1,0 +1,35 @@
+# CI do MBV Marketplace: roda a suíte de testes + e2e de fumaça a cada push/PR.
+# O Render deploya todo push na main — este workflow é o gate de regressão.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    name: Node ${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+      # Node 22 usa a flag --experimental-sqlite (já embutida no npm test);
+      # Node 23+ tem node:sqlite nativo, então chama o test runner direto.
+      - name: Testes (unit + integração HTTP)
+        run: |
+          if [ "${{ matrix.node }}" = "22" ]; then
+            npm test
+          else
+            node --test server/test/*.test.js
+          fi
+      - name: E2E de fumaça (admin + cliente, 3 pagamentos)
+        run: npm run e2e

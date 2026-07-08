@@ -129,7 +129,7 @@ function renderHeader() {
   });
   const pop = document.getElementById('acctPop');
   document.getElementById('acctBtn').addEventListener('click', e => { e.stopPropagation(); pop.classList.toggle('hide'); });
-  document.addEventListener('click', () => pop && pop.classList.add('hide'));
+  // (o fechamento do menu ao clicar fora é feito pelo listener global delegado — 1 registro só, sem vazamento)
   const lo = document.getElementById('logoutBtn');
   if (lo) lo.addEventListener('click', () => { Store.logout(); renderHeader(); go('/'); toast('Até logo!', 'Você saiu da sua conta.'); });
 }
@@ -192,6 +192,9 @@ async function toggleFav(id) {
   } catch (e) { toast('Ops', e.message, 'err'); }
 }
 document.addEventListener('click', e => {
+  // Fecha o menu da conta ao clicar em qualquer lugar (o botão usa stopPropagation para alternar).
+  const acctPop = document.getElementById('acctPop');
+  if (acctPop) acctPop.classList.add('hide');
   const add = e.target.closest('[data-add]'); if (add) { e.preventDefault(); addToCart(add.dataset.add); return; }
   const fav = e.target.closest('[data-fav]'); if (fav) { e.preventDefault(); toggleFav(fav.dataset.fav); return; }
   const a = e.target.closest('a');
@@ -798,7 +801,7 @@ Pages.checkout = async function () {
           <div class="field"><label>Nome completo</label><input id="s_name" value="${escapeHtml(Store.user.name)}"></div>
           <div class="field"><label>CPF/CNPJ <span class="muted" style="font-weight:400">(para nota fiscal e cupons exclusivos)</span></label><input id="s_cpf" placeholder="000.000.000-00" value="${escapeHtml(Flow.cpf || '')}"></div>
           <div class="grid-2">
-            <div class="field"><label>CEP</label><input id="s_cep" placeholder="00000-000"></div>
+            <div class="field"><label>CEP</label><input id="s_cep" placeholder="00000-000" inputmode="numeric" autocomplete="postal-code"><span id="cepHint" class="muted" style="font-size:12.5px" aria-live="polite"></span></div>
             <div class="field"><label>Telefone</label><input id="s_phone" placeholder="(00) 00000-0000"></div>
           </div>
           <div class="field"><label>Endereço (rua, nº, complemento)</label><input id="s_address" placeholder="Rua, número, bairro"></div>
@@ -830,7 +833,9 @@ Pages.checkout = async function () {
   if (cepEl) cepEl.addEventListener('blur', async () => {
     const cep = cepEl.value.replace(/\D/g, '');
     Flow.cep = cep;
+    const hint = app.querySelector('#cepHint');
     if (cep.length === 8) {
+      if (hint) hint.textContent = 'Buscando endereço pelo CEP…';
       try {
         const r = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
         const dd = await r.json();
@@ -838,9 +843,10 @@ Pages.checkout = async function () {
           if (dd.logradouro && !app.querySelector('#s_address').value) app.querySelector('#s_address').value = dd.logradouro + (dd.bairro ? ', ' + dd.bairro : '');
           if (dd.localidade) app.querySelector('#s_city').value = dd.localidade;
           if (dd.uf) app.querySelector('#s_state').value = dd.uf;
-        }
-      } catch (_) {}
-    }
+          if (hint) hint.textContent = '';
+        } else if (hint) hint.textContent = 'CEP não encontrado — preencha o endereço manualmente.';
+      } catch (_) { if (hint) hint.textContent = 'Não foi possível consultar o CEP — preencha manualmente.'; }
+    } else if (hint) hint.textContent = '';
     refreshCheckoutSummary();
   });
   const cpfEl = app.querySelector('#s_cpf');

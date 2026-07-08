@@ -37,6 +37,7 @@ router.post('/', (req, res) => {
 // PUT /api/cart/:productId  { quantity }
 router.put('/:productId', (req, res) => {
   const qty = parseInt(req.body.quantity);
+  if (!Number.isInteger(qty)) return res.status(400).json({ error: 'Informe uma quantidade válida.' }); // NaN causava 500
   const product = db.prepare('SELECT stock FROM products WHERE id = ?').get(req.params.productId);
   if (!product) return res.status(404).json({ error: 'Produto não encontrado.' });
   if (qty <= 0) {

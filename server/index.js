@@ -23,7 +23,7 @@ app.use(helmet({
       'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       'font-src': ["'self'", 'https://fonts.gstatic.com'],
       'img-src': ["'self'", 'data:', 'https:'],
-      'connect-src': ["'self'", 'https://www.google-analytics.com', 'https://region1.google-analytics.com', 'https://cdnjs.cloudflare.com'],
+      'connect-src': ["'self'", 'https://www.google-analytics.com', 'https://region1.google-analytics.com', 'https://cdnjs.cloudflare.com', 'https://viacep.com.br'],
       'frame-ancestors': ["'self'"],
       'object-src': ["'none'"],
       'base-uri': ["'self'"],
@@ -133,18 +133,26 @@ function preflight() {
   if (cfg.JWT_USING_DEFAULT_SECRET) throw new Error('GO-LIVE bloqueado: defina um JWT_SECRET forte (variável de ambiente).');
   const warn = [];
   if (!cfg.MP.enabled) warn.push('Mercado Pago sem chave (MP_ACCESS_TOKEN): Cartão/Pix ficarão indisponíveis.');
+  if (cfg.MP.enabled && !cfg.MP.webhookSecret) warn.push('Mercado Pago ativo SEM MP_WEBHOOK_SECRET: o webhook aceitará notificações não autenticadas — configure o secret no painel do MP.');
   if (!cfg.EMAIL.resendKey) warn.push('Resend sem chave (RESEND_API_KEY): e-mails não serão enviados.');
   if (!process.env.MBV_DATA_DIR && !process.env.DATABASE_URL) warn.push('Armazenamento possivelmente efêmero: defina MBV_DATA_DIR (disco persistente) ou migre para Postgres — os dados podem zerar.');
   warn.forEach(w => console.warn('  ⚠️  GO-LIVE:', w));
 }
 preflight();
 
-// Popula o banco na primeira execução, depois sobe o servidor.
+// Popula o banco na primeira execução.
 ensureSeed();
 require('./db').reindexSearch(); // índice de busca (sem acento) atualizado no boot
-app.listen(PORT, () => {
-  console.log('\n  🌱  MBV Marketplace no ar!');
-  console.log(`     →  http://localhost:${PORT}\n`);
-  console.log('  Admin:   admin@mbv.com    / admin123');
-  console.log('  Cliente: cliente@mbv.com  / cliente123\n');
-});
+
+// Exporta o app (testes de integração fazem require e usam app.listen(0) em porta efêmera).
+module.exports = app;
+
+// Sobe o servidor apenas quando executado diretamente (npm start / node server/index.js).
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log('\n  🌱  MBV Marketplace no ar!');
+    console.log(`     →  http://localhost:${PORT}\n`);
+    console.log('  Admin:   admin@mbv.com    / admin123');
+    console.log('  Cliente: cliente@mbv.com  / cliente123\n');
+  });
+}
