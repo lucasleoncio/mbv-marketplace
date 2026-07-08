@@ -1005,9 +1005,51 @@ function fieldError(el, msg) {
   }
 }
 // Ao digitar num campo marcado como inválido, o erro some (1 listener global, sem vazamento).
+// Campos com validação ao vivo (_validate) cuidam de si mesmos e são ignorados aqui.
 document.addEventListener('input', e => {
-  if (e.target && e.target.getAttribute && e.target.getAttribute('aria-invalid') === 'true') fieldError(e.target, '');
+  const t = e.target;
+  if (t && t.getAttribute && t.getAttribute('aria-invalid') === 'true' && !t._validate) fieldError(t, '');
 });
+
+/* ---------- Validação ao vivo (padrão do comitê: "reward early, punish late") ----------
+   Valida no BLUR (não incomoda quem ainda está digitando); depois que o campo errou,
+   revalida a cada tecla — fica verde no instante em que corrigir. */
+function liveValidate(el, validate) {
+  if (!el) return () => true;
+  let touched = false;
+  const run = () => {
+    const msg = validate(el.value);
+    fieldError(el, msg);
+    el.classList.toggle('valid', !msg && el.value.trim() !== '');
+    return !msg;
+  };
+  el.addEventListener('blur', () => { touched = true; run(); });
+  el.addEventListener('input', () => { if (touched || el.getAttribute('aria-invalid') === 'true') { touched = true; run(); } });
+  el._validate = run;
+  return run;
+}
+// Validadores (mesmas regras do servidor — o backend continua sendo a fonte da verdade).
+const V = {
+  required: (msg) => (v) => String(v).trim() ? '' : msg,
+  email: (v) => {
+    const s = String(v).trim();
+    if (!s) return 'Informe seu e-mail.';
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s) ? '' : 'E-mail inválido — ex.: nome@dominio.com';
+  },
+  doc: (v) => {
+    const d = String(v).replace(/\D/g, '');
+    if (!d) return 'Informe seu CPF ou CNPJ.';
+    if (d.length < 11 || (d.length > 11 && d.length < 14)) return 'CPF/CNPJ incompleto — CPF tem 11 dígitos, CNPJ tem 14.';
+    return validDoc(d) ? '' : 'CPF/CNPJ inválido — confira os números digitados.';
+  },
+  docOptional: (v) => (String(v).trim() ? V.doc(v) : ''),
+  phoneOptional: (v) => {
+    const d = String(v).replace(/\D/g, '');
+    if (!d) return '';
+    return d.length >= 10 && d.length <= 11 ? '' : 'Celular incompleto — use DDD + número (ex.: 11 98888-7777).';
+  },
+  passMin: (v) => (String(v).length >= 8 ? '' : 'A senha precisa de pelo menos 8 caracteres.')
+};
 
 /* ---------- CHECKOUT ---------- */
 Pages.checkout = async function () {
@@ -1061,6 +1103,9 @@ Pages.checkout = async function () {
   applyMask(app.querySelector('#s_cep'), Mask.cep);
   applyMask(app.querySelector('#s_cpf'), Mask.cpfCnpj);
   applyMask(app.querySelector('#s_phone'), Mask.phone);
+  // Validação ao vivo no checkout (CPF/CNPJ e celular ficam vermelhos se inválidos)
+  liveValidate(app.querySelector('#s_cpf'), V.docOptional);
+  liveValidate(app.querySelector('#s_phone'), V.phoneOptional);
   // Reaproveita a entrega anterior: pré-preenche endereço/telefone/CPF do último pedido
   // (só campos vazios; se o CEP atual diverge do antigo, não mistura endereços).
   (async () => {
@@ -1725,12 +1770,14 @@ Pages.auth = function (query) {
         <p style="text-align:center;margin-top:12px"><a href="/recuperar" style="color:var(--green-700);font-weight:600;font-size:13.5px">Esqueci minha senha</a></p>
         <div class="demo-box"><b>Contas de demonstração:</b><br>Admin: <b>admin@mbv.com</b> / admin123<br>Cliente: <b>cliente@mbv.com</b> / cliente123</div>`;
       wireEyes(box);
+      const lChecks = [
+        liveValidate(box.querySelector('#l_email'), V.email),
+        liveValidate(box.querySelector('#l_pass'), V.required('Informe sua senha.'))
+      ];
       box.querySelector('#loginForm').addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const email = app.querySelector('#l_email'), pass = app.querySelector('#l_pass');
-        fieldError(email, email.value.trim() ? '' : 'Informe seu e-mail.');
-        fieldError(pass, pass.value ? '' : 'Informe sua senha.');
-        if (!email.value.trim() || !pass.value) return;
+        if (lChecks.map(r => r()).includes(false)) { const bad = box.querySelector('[aria-invalid="true"]'); if (bad) bad.focus(); return; }
         try {
           await submitWith(box.querySelector('#loginBtn'), 'Entrando…', async () => {
             const r = await API.post('/auth/login', { email: email.value.trim(), password: pass.value });
@@ -1757,19 +1804,25 @@ Pages.auth = function (query) {
       wirePwMeter(box, 'r_pass');
       applyMask(box.querySelector('#r_doc'), Mask.cpfCnpj);
       applyMask(box.querySelector('#r_phone'), Mask.phone);
+      // Validação ao vivo: erra no blur, corrige em tempo real (campo fica verde ao validar).
+      const rChecks = [
+        liveValidate(box.querySelector('#r_name'), V.required('Informe seu nome.')),
+        liveValidate(box.querySelector('#r_email'), V.email),
+        liveValidate(box.querySelector('#r_doc'), V.doc),
+        liveValidate(box.querySelector('#r_phone'), V.phoneOptional),
+        liveValidate(box.querySelector('#r_pass'), V.passMin)
+      ];
       box.querySelector('#regForm').addEventListener('submit', async (ev) => {
         ev.preventDefault();
-        const name = app.querySelector('#r_name'), email = app.querySelector('#r_email'), pass = app.querySelector('#r_pass'), doc = app.querySelector('#r_doc');
-        fieldError(name, name.value.trim() ? '' : 'Informe seu nome.');
-        fieldError(email, /.+@.+\..+/.test(email.value.trim()) ? '' : 'Informe um e-mail válido.');
-        fieldError(pass, pass.value.length >= 8 ? '' : 'A senha precisa de pelo menos 8 caracteres.');
-        fieldError(doc, doc.value.trim() ? (validDoc(doc.value) ? '' : 'CPF/CNPJ inválido — confira os números.') : 'Informe seu CPF ou CNPJ.');
-        if (!name.value.trim() || !/.+@.+\..+/.test(email.value.trim()) || pass.value.length < 8 || !doc.value.trim() || !validDoc(doc.value)) return;
+        if (rChecks.map(r => r()).includes(false)) { const bad = box.querySelector('[aria-invalid="true"]'); if (bad) { bad.scrollIntoView({ behavior: 'smooth', block: 'center' }); bad.focus({ preventScroll: true }); } return; }
         try {
           await submitWith(box.querySelector('#regBtn'), 'Criando conta…', async () => {
             const r = await API.post('/auth/register', {
-              name: name.value.trim(), email: email.value.trim(), password: pass.value,
-              cpf_cnpj: doc.value.trim(), phone: app.querySelector('#r_phone').value.trim()
+              name: box.querySelector('#r_name').value.trim(),
+              email: box.querySelector('#r_email').value.trim(),
+              password: box.querySelector('#r_pass').value,
+              cpf_cnpj: box.querySelector('#r_doc').value.trim(),
+              phone: box.querySelector('#r_phone').value.trim()
             });
             await finishLogin(r, 'Conta criada! Você ganhou 150 NTR 🌱');
           });
@@ -1811,8 +1864,10 @@ Pages.reset = function (query) {
   </div></div>`);
   wireEyes(app.querySelector('#rsForm'));
   wirePwMeter(app.querySelector('#rsForm'), 'rs_pass');
+  const rsCheck = liveValidate(app.querySelector('#rs_pass'), V.passMin);
   app.querySelector('#rsForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    if (!rsCheck()) return;
     try { await API.post('/auth/reset', { token, password: app.querySelector('#rs_pass').value }); toast('Senha alterada!', 'Já pode entrar com a nova senha.', 'ok'); go('/entrar'); }
     catch (e) { toast('Ops', e.message, 'err'); }
   });

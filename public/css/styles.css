@@ -330,6 +330,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .field input:focus,.field select:focus,.field textarea:focus{outline:0;border-color:var(--green-500);box-shadow:0 0 0 3px rgba(30,184,102,.13)}
 /* Validação inline */
 .field input.invalid{border-color:var(--danger);background:#fffafa}
+.field input.invalid:focus{border-color:var(--danger);box-shadow:0 0 0 3px rgba(214,69,69,.12)}
+.field input.valid{border-color:var(--green-500)}
 .field-err{color:var(--danger);font-size:12.5px;margin-top:4px;display:block}
 /* Campo de senha com "mostrar/ocultar" */
 .pass-wrap{position:relative}
