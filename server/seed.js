@@ -1,5 +1,6 @@
 // Popula o banco com dados de demonstração do MBV (catálogo eco-agro, cupons, admin e cliente).
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const db = require('./db');
 const wallet = require('./lib/wallet');
 
@@ -54,7 +55,7 @@ const PRODUCTS = [
   { name: 'Coin Max — Fertilizante Foliar Organomineral', cat: 'fertilizantes', price: 159.9, compare: 0, stock: 120, unit: 'L', pack: 'Frasco 1 litro', co2: 5, featured: 1,
     img: 'https://agroeda.com.br/images/produto.png',
     badges: ['Organomineral', 'Via Foliar', 'Registro MAPA'],
-    desc: 'Fertilizante foliar organomineral de alta performance da Agroeda, parceira do MBV. Seu diferencial é o bioestimulante genético — uma fórmula ultraconcentrada de extratos vegetais orgânicos que estimula a fotossíntese e a absorção de nutrientes, elevando a produção em no mínimo 7% nas culturas foliares. Composto por extratos de algas e aminoácidos, favorece plantas mais vigorosas e tolerantes a estresses. Indicado para soja, milho, feijão, tomate, manga, morango, uva e outras. Garantias: N 4%, P₂O₅ 1%, B 1,5%, Mn 0,25%, Mo 0,5%, Zn 1,5% e COT 6%. Suspensão fluida homogênea (densidade 1,20 g/mL), Classe A, via foliar. Dose: 5 a 6 L/ha, aplicação única entre os estádios V4 e V6. Registro no MAPA RS-003872-5.000067. Também disponível em balde de 18 kg.' }
+    desc: 'Fertilizante foliar organomineral de alta performance da Agroeda, parceira do MBV. Seu diferencial é o bioestimulante genético — uma fórmula ultraconcentrada de extratos vegetais orgânicos que estimula a fotossíntese e a absorção de nutrientes. Segundo avaliações do fabricante, os ganhos de produtividade em culturas foliares partem de 7% (resultados variam conforme cultura, solo, clima e manejo). Composto por extratos de algas e aminoácidos, favorece plantas mais vigorosas e tolerantes a estresses. Indicado para soja, milho, feijão, tomate, manga, morango, uva e outras. Garantias: N 4%, P₂O₅ 1%, B 1,5%, Mn 0,25%, Mo 0,5%, Zn 1,5% e COT 6%. Suspensão fluida homogênea (densidade 1,20 g/mL), Classe A, via foliar. Dose: 5 a 6 L/ha, aplicação única entre os estádios V4 e V6. Registro no MAPA RS-003872-5.000067. Também disponível em balde de 18 kg.' }
 ];
 
 // Dose recomendada por hectare (na unidade do produto) e quantidade por embalagem — para a calculadora.
@@ -71,6 +72,48 @@ const DOSE = {
   'Coin Max — Fertilizante Foliar Organomineral': { dose: 5.5, packQty: 1 }
 };
 
+// Avaliações de demonstração COERENTES: as estrelas exibidas derivam SEMPRE de
+// avaliações reais gravadas na tabela reviews — nunca de nota aleatória.
+// Produtos sem avaliação ficam com rating 0 e a loja não exibe estrelas (nem manda ao Google).
+const REVIEWS = {
+  'Eutroterra — Condicionador de Solo Orgânico': [
+    [5, 'Apliquei em área compactada de pastagem degradada. Em uma safra o solo já ficou mais solto e a raiz aprofundou. Repetirei a dose de manutenção.'],
+    [5, 'Uso há dois ciclos na soja. A resposta em áreas fracas do talhão foi visível no vigor das plantas.'],
+    [4, 'Produto bom, entrega rápida. Só acho a bombona de 16 L pesada para manuseio — poderia ter opção menor.']
+  ],
+  'Neutrotan — Neutralizador de Acidez Biológico': [
+    [5, 'Substituí parte da calagem no pomar e o pH estabilizou sem resíduo. Compatível com meu manejo orgânico certificado.'],
+    [4, 'Funciona bem, mas exige reaplicação conforme a análise de solo. Suporte da MBV me ajudou a calibrar a dose.']
+  ],
+  'Biofertilizante Líquido Premium': [
+    [5, 'Uso na fertirrigação da horta comercial. Folhas com melhor coloração em 15 dias e economizei no adubo mineral.'],
+    [4, 'Bom custo-benefício no galão de 5 L. Dissolve fácil, sem entupir bico de pulverizador.']
+  ],
+  'Húmus de Minhoca Peneirado': [
+    [5, 'Peneirado de verdade, sem torrão. Minhas mudas de alface pegaram muito melhor no transplante.'],
+    [5, 'Excelente para canteiro. Cheiro de terra boa, umidade certa.']
+  ],
+  'Sementes de Adubo Verde (Crotalária)': [
+    [5, 'Germinação alta e stand uniforme. Usei no pousio para quebrar ciclo de nematoide.'],
+    [4, 'Semente limpa e bem embalada. Só demorou um pouco mais que o prazo para minha região.']
+  ],
+  'Painel Solar Agrícola 550W': [
+    [5, 'Instalei dois painéis para o bombeamento do açude. Zerou o gasto com diesel da bomba antiga.'],
+    [4, 'Painel de qualidade. A fixação não vem inclusa, precisei comprar o suporte à parte.']
+  ],
+  'Sensor de Umidade do Solo (IoT)': [
+    [4, 'O app é simples e funciona. Reduzi duas irrigações por semana no café sem perda de vigor.'],
+    [5, 'Fácil de instalar. Os alertas de umidade me pouparam água no verão.']
+  ],
+  'Coin Max — Fertilizante Foliar Organomineral': [
+    [5, 'Apliquei no feijão entre V4 e V6 como recomendado. Lavoura respondeu com mais enfolhamento e uniformidade.'],
+    [5, 'Produto com registro no MAPA e procedência da Agroeda. Na uva, cacho mais uniforme nesta safra.'],
+    [4, 'Bom resultado no tomate. Recomendo seguir a dose da bula — mais que isso não trouxe ganho.']
+  ]
+};
+// Nomes fictícios dos avaliadores de demonstração (contas sem senha utilizável).
+const REVIEWER_NAMES = ['Carlos Menezes', 'Ana Paula Furtado', 'João Ricardo Alves', 'Marta Siqueira'];
+
 const COUPONS = [
   { code: 'COINMAX', type: 'percent', value: 10, description: 'Cupom Coinmax: 10% OFF + 20 MBV de cashback', min_subtotal: 0, cashback_mbv: 20 },
   { code: 'SAFRA15', type: 'percent', value: 15, description: '15% OFF em compras acima de R$ 500', min_subtotal: 500, cashback_mbv: 0 },
@@ -86,16 +129,17 @@ function seed() {
     INSERT INTO products (name, slug, description, price, compare_at_price, category_id, stock, unit, pack_size, badges, featured, co2, image, dose_per_ha, pack_qty, rating, rating_count, active)
     VALUES (@name,@slug,@desc,@price,@compare,@cat,@stock,@unit,@pack,@badges,@featured,@co2,@image,@dose,@packQty,@rating,@rc,1)
   `);
+  const prodId = {};
   for (const p of PRODUCTS) {
-    insProd.run({
+    prodId[p.name] = insProd.run({
       name: p.name,
       slug: p.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
       desc: p.desc, price: p.price, compare: p.compare || null, cat: catId[p.cat], stock: p.stock,
       unit: p.unit, pack: p.pack, badges: JSON.stringify(p.badges || []), featured: p.featured || 0,
       co2: p.co2 || 0, image: p.img || null,
       dose: (DOSE[p.name] || {}).dose || 0, packQty: (DOSE[p.name] || {}).packQty || 1,
-      rating: Math.round((4.2 + Math.random() * 0.7) * 10) / 10, rc: 8 + Math.floor(Math.random() * 90)
-    });
+      rating: 0, rc: 0 // nota SEMPRE derivada de reviews reais (inseridas abaixo)
+    }).lastInsertRowid;
   }
 
   const insCoupon = db.prepare('INSERT INTO coupons (code, type, value, description, min_subtotal, cashback_mbv, active) VALUES (?,?,?,?,?,?,1)');
@@ -109,6 +153,26 @@ function seed() {
   // Bônus de boas-vindas + saldo para testar pagamento em MBV Coin
   wallet.move(cust.lastInsertRowid, 150, 'welcome', 'Bônus de boas-vindas ao MBV', 'welcome');
   wallet.move(cust.lastInsertRowid, 2000, 'topup', 'Recarga inicial de demonstração', 'demo');
+
+  // Avaliadores de demonstração (senha aleatória inutilizável) + avaliações coerentes.
+  // O rating/rating_count do produto é CALCULADO das reviews — mesma regra do runtime (routes/products.js).
+  const reviewerIds = REVIEWER_NAMES.map((name, i) => insUser.run(
+    name, `demo.avaliador${i + 1}@mbv.com`, bcrypt.hashSync(crypto.randomBytes(18).toString('hex'), 10),
+    'customer', wallet.makeWalletAddress()
+  ).lastInsertRowid);
+  const insRev = db.prepare('INSERT INTO reviews (product_id, user_id, user_name, rating, comment) VALUES (?,?,?,?,?)');
+  const updRating = db.prepare('UPDATE products SET rating = ?, rating_count = ? WHERE id = ?');
+  for (const [prodName, list] of Object.entries(REVIEWS)) {
+    const pid = prodId[prodName];
+    if (!pid) continue;
+    list.forEach(([stars, comment], i) => {
+      const uid = reviewerIds[i % reviewerIds.length];
+      insRev.run(pid, uid, REVIEWER_NAMES[i % REVIEWER_NAMES.length], stars, comment);
+    });
+    const avg = list.reduce((s, [r]) => s + r, 0) / list.length;
+    updRating.run(Math.round(avg * 10) / 10, list.length, pid);
+  }
+
   db.prepare('UPDATE users SET email_verified = 1').run(); // contas de demonstração já verificadas
 
   console.log('  ✓ Seed concluído:', PRODUCTS.length, 'produtos,', CATEGORIES.length, 'categorias,', COUPONS.length, 'cupons.');

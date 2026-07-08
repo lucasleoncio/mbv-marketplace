@@ -36,9 +36,10 @@ function productPage(id) {
   const desc = ((p.description || '').slice(0, 158)) || 'Insumo sustentável do MBV.';
   const img = p.image && /^https?:/.test(p.image) ? p.image : OG_DEFAULT;
   let badges = []; try { badges = JSON.parse(p.badges || '[]'); } catch (_) {}
-  const cert = badges.length ? badges.join(', ') : 'biotecnologia COT/PVE';
+  // Anti-greenwashing: nada de "É sustentável? Sim." absoluto — texto factual,
+  // condicionado aos selos existentes e apontando para a metodologia/critérios.
   const faq = [
-    { q: `O ${p.name} é sustentável?`, a: `Sim. É produzido com ${cert}, dentro da proposta de agricultura regenerativa do MBV.` },
+    { q: `Como o ${p.name} se encaixa no manejo sustentável?`, a: `O produto integra o catálogo de manejo sustentável do MBV${badges.length ? `, com os selos: ${badges.join(', ')}` : ''}. Os critérios e as limitações das nossas alegações ambientais estão descritos na página de metodologia (/metodologia-co2).` },
     { q: 'Quais as formas de pagamento?', a: 'Cartão, Pix ou o token Neutrotan (NTR). Pagando em NTR você ganha 5% de desconto e cashback.' },
     { q: 'Qual o prazo e o valor do frete?', a: 'O frete é calculado pelo seu CEP no checkout. Em compras acima de R$ 500, o frete é grátis.' },
     { q: 'Posso trocar ou devolver?', a: 'Sim. Você tem até 7 dias corridos após o recebimento, conforme o Código de Defesa do Consumidor.' },

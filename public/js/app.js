@@ -106,6 +106,7 @@ function renderHeader() {
   const u = Store.user;
   const cats = Store.categories.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('');
   h.innerHTML = `
+  ${Store.chain && Store.chain.demo ? `<div class="demo-strip" role="note">Ambiente de demonstração — produtos, preços e avaliações são ilustrativos.</div>` : ''}
   <div class="topbar"><div class="container">
     <span class="topbar-tag">🌱 Regenerar para produzir · Desde 1992 · Frete grátis acima de R$ 500</span>
     <span class="topbar-right">
@@ -187,11 +188,13 @@ function renderFooter() {
       </div>
       <div><h5>Categorias</h5>${Store.categories.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('')}</div>
       <div><h5>Conta</h5><a href="/conta">Minha conta</a><a href="/pedidos">Meus pedidos</a><a href="/carteira">Carteira Neutrotan (NTR)</a><a href="/favoritos">Favoritos</a></div>
-      <div><h5>Institucional</h5><a href="/sobre">Sobre</a><a href="/contato">Contato</a><a href="/faq">FAQ</a><a href="/termos">Termos de uso</a><a href="/privacidade">Privacidade</a><a href="/trocas">Trocas e devoluções</a></div>
+      <div><h5>Institucional</h5><a href="/sobre">Sobre</a><a href="/contato">Contato</a><a href="/faq">FAQ</a><a href="/termos">Termos de uso</a><a href="/privacidade">Privacidade</a><a href="/trocas">Trocas e devoluções</a><a href="#" id="cookiePrefs">Preferências de cookies</a></div>
       <div><h5>Neutrotan (NTR)</h5><a href="/carteira">Saldo & extrato</a><a href="/checkout">Pagar com cripto</a><a href="/transparencia">Transparência on-chain</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">Utility token ERC-20 na rede Polygon.<br>Lastro em Carbono Orgânico Total (COT) · Valor de referência: 1 NTR = ${money(Store.rate)}.</span></div>
     </div>
     <div class="footer-bottom"><span>© 2026 Grupo Movimento Brasil Verde · CNPJ 54.224.102/0001-10</span><span style="display:inline-flex;align-items:center;gap:16px;flex-wrap:wrap"><span>Cartão · Pix · Neutrotan (NTR) 🌱</span><span class="demo"><a class="petrus-credit" href="https://www.petrus-software.com" target="_blank" rel="noopener" aria-label="Petrus — petrus-software.com">Desenvolvido por <span class="petrus-chip"><img src="/img/petrus-logo.svg" alt="Petrus" height="15" loading="lazy"></span></a></span></span></div>
   </div></div>`;
+  const ck = document.getElementById('cookiePrefs');
+  if (ck) ck.addEventListener('click', e => { e.preventDefault(); cookieBanner(true); });
 }
 
 /* ---------------- Ações globais (carrinho/favoritos) ---------------- */
@@ -313,7 +316,7 @@ const STATIC_PAGES = {
     <h1>Sobre o MBV</h1>
     <p>O <b>Movimento Brasil Verde (MBV)</b> une, desde 1992, pesquisa científica e atuação no campo para regenerar ambientes e elevar resultados no agronegócio. Hoje, como empresa formalizada, entregamos reflorestamento biossustentável, saneamento e soluções ESG com transparência em blockchain.</p>
     <h2>Ciência que gera resultado</h2>
-    <p>Nossos protocolos biotecnológicos <b>COT/PVE</b> aceleram o metabolismo das plantas, recuperam solos e ampliam a produtividade — com ganhos comprovados, como <b>+70% na soja</b> em áreas antes degradadas.</p>
+    <p>Nossos protocolos biotecnológicos <b>COT/PVE</b> aceleram o metabolismo das plantas, recuperam solos e ampliam a produtividade — em ensaio de campo do MBV, observamos <b>+70% na soja</b> em área antes degradada (resultados variam conforme solo, clima e manejo).</p>
     <h2>Compromisso</h2>
     <p>Somos signatários do <b>Pacto Global da ONU</b> e alinhados aos <b>ODS</b>. Cada projeto une lastro real e auditoria, conectando produtores, investidores e sociedade a um impacto mensurável.</p>
     <p>Este marketplace é a vitrine dos nossos insumos sustentáveis, com pagamento por Cartão, Pix e pelo token <b>Neutrotan (NTR)</b>.</p>
@@ -339,14 +342,15 @@ const STATIC_PAGES = {
   </div>` },
   privacidade: { crumb: 'Privacidade', html: `<div class="prose">
     <h1>Política de Privacidade</h1>
-    <p class="muted">Atualizado em junho de 2026 · Modelo — recomendamos validação jurídica antes do go-live.</p>
+    <p class="muted">Atualizado em julho de 2026 · Versão de demonstração — passará por validação jurídica antes do lançamento oficial.</p>
     <p>O Movimento Brasil Verde (CNPJ 54.224.102/0001-10) cumpre a Lei Geral de Proteção de Dados (Lei 13.709/2018 — LGPD).</p>
     <h2>Dados que coletamos</h2><p>Nome, e-mail, telefone, endereço de entrega, CPF/CNPJ (para nota fiscal e cupons) e, se você pagar com NTR, o endereço público da sua carteira. Não armazenamos dados completos de cartão.</p>
     <h2>Como usamos</h2><p>Para processar e entregar pedidos, emitir documentos fiscais, prevenir fraudes, enviar comunicações sobre sua compra e cumprir obrigações legais.</p>
     <h2>Operadores e terceiros</h2><p>Compartilhamos apenas o necessário com: <b>Mercado Pago</b> (pagamentos), <b>Resend</b> (envio de e-mails) e <b>Google Analytics</b> (métricas de uso, somente após seu consentimento de cookies). Pagamentos em NTR ocorrem na rede pública Polygon.</p>
     <h2>Retenção</h2><p>Mantemos os dados pelo tempo necessário às finalidades acima e aos prazos legais (ex.: fiscais).</p>
     <h2>Seus direitos</h2><p>Você pode acessar, corrigir, excluir ou portar seus dados e revogar consentimento pelo e-mail <b>contato@movimentobrasilverde.com</b> (encarregado/DPO).</p>
-    <h2>Cookies</h2><p>Cookies essenciais mantêm sua sessão e seu carrinho. Cookies de análise (Google Analytics) só são ativados se você aceitar no banner — você pode recusar e usar a loja normalmente.</p>
+    <h2>Dados em blockchain</h2><p>Pagamentos com o token NTR são registrados na rede pública <b>Polygon</b>. Registros em blockchain são <b>públicos e imutáveis</b> por natureza: o endereço da carteira e os valores das transações não podem ser apagados nem alterados por nós. O direito de eliminação (LGPD art. 18, VI) aplica-se às bases internas do MBV; não alcança dados já gravados na rede pública. Não vincule sua carteira se não concordar com essa característica — você pode pagar com Cartão ou Pix.</p>
+    <h2>Cookies</h2><p>Cookies essenciais mantêm sua sessão e seu carrinho. Cookies de análise (Google Analytics) só são ativados se você aceitar no banner — você pode recusar e usar a loja normalmente. Para rever sua escolha a qualquer momento, use <b>“Preferências de cookies”</b> no rodapé.</p>
   </div>` },
   afiliados: { crumb: 'Programa de Afiliados', html: `<div class="prose">
     <span class="eyebrow">Indique e ganhe</span>
@@ -367,8 +371,8 @@ const STATIC_PAGES = {
   </div>` },
   termos: { crumb: 'Termos', html: `<div class="prose">
     <h1>Termos de Uso</h1>
-    <p class="muted">Modelo inicial — recomendamos revisão por um advogado.</p>
-    <p>Ao usar este marketplace, você concorda com estes termos.</p>
+    <p class="muted">Versão de demonstração — passará por validação jurídica antes do lançamento oficial.</p>
+    <p>Este marketplace é operado pelo <b>Grupo Movimento Brasil Verde</b>, CNPJ <b>54.224.102/0001-10</b> — contato: <b>contato@movimentobrasilverde.com</b> · WhatsApp +55 48 9174-1610. Ao usar a plataforma, você concorda com estes termos.</p>
     <h2>Uso da plataforma</h2><p>Você se compromete a fornecer informações verdadeiras e a usar a plataforma de forma lícita.</p>
     <h2>Pedidos e pagamentos</h2><p>Preços e disponibilidade podem mudar. O pedido é confirmado após a aprovação do pagamento (Cartão, Pix ou NTR).</p>
     <h2>Token Neutrotan (NTR)</h2><p>O NTR é um utility token de uso no ecossistema MBV. Não constitui oferta de valor mobiliário nem promessa de rentabilidade.</p>
@@ -377,11 +381,12 @@ const STATIC_PAGES = {
   </div>` },
   trocas: { crumb: 'Trocas e devoluções', html: `<div class="prose">
     <h1>Trocas e Devoluções</h1>
-    <p class="muted">Modelo inicial — recomendamos revisão por um advogado.</p>
-    <h2>Direito de arrependimento</h2><p>Conforme o Código de Defesa do Consumidor (art. 49), você pode desistir da compra em até <b>7 dias corridos</b> após o recebimento.</p>
-    <h2>Como solicitar</h2><p>Envie um e-mail para contato@movimentobrasilverde.com com o número do pedido. O produto deve estar sem uso e na embalagem original.</p>
-    <h2>Reembolso</h2><p>Após o recebimento e a conferência, o reembolso é feito pelo mesmo meio de pagamento. Em pagamentos com NTR, o estorno é feito em NTR.</p>
-    <h2>Produtos com defeito</h2><p>Em caso de defeito, entre em contato em até 7 dias (não duráveis) ou 90 dias (duráveis).</p>
+    <p class="muted">Versão de demonstração — passará por validação jurídica antes do lançamento oficial.</p>
+    <p>Política do <b>Grupo Movimento Brasil Verde</b> (CNPJ 54.224.102/0001-10), conforme o Código de Defesa do Consumidor e o Decreto 7.962/2013 (comércio eletrônico).</p>
+    <h2>Direito de arrependimento</h2><p>Conforme o CDC (art. 49), você pode desistir da compra em até <b>7 dias corridos</b> após o recebimento, sem precisar justificar. Nesse caso, <b>o frete de devolução é por conta da loja</b> e você recebe de volta <b>todos os valores pagos, incluindo o frete de envio</b>.</p>
+    <h2>Como solicitar</h2><p>Envie um e-mail para contato@movimentobrasilverde.com com o número do pedido. O produto deve estar sem uso e na embalagem original. Enviaremos o código de postagem para a devolução sem custo.</p>
+    <h2>Reembolso</h2><p>Após o recebimento e a conferência do produto, o reembolso é processado em até <b>10 dias úteis</b>, pelo mesmo meio de pagamento (estorno no cartão, devolução via Pix ou, em pagamentos com NTR, estorno em NTR pela mesma quantidade paga).</p>
+    <h2>Produtos com defeito</h2><p>Em caso de vício/defeito, você tem até <b>30 dias</b> (produtos não duráveis) ou <b>90 dias</b> (duráveis) para reclamar, conforme o CDC art. 26 — sem custo de frete.</p>
   </div>` }
 };
 Pages.page = function (slug) {
@@ -416,7 +421,8 @@ Pages.home = async function () {
           <a href="/produtos" class="btn btn-lg" style="background:var(--lime);color:#15391f">Explorar produtos ${icon('arrow', 18)}</a>
           <a href="/carteira" class="btn btn-lg btn-ghost">Conhecer o token NTR</a>
         </div>
-        <div class="hero-stats"><div><b>30+</b><span>anos regenerando</span></div><div><b>+70%</b><span>produtividade na soja</span></div><div><b>5%</b><span>desconto pagando em NTR</span></div></div>
+        <div class="hero-stats"><div><b>30+</b><span>anos regenerando</span></div><div><b>+70%</b><span>na soja em ensaio de campo*</span></div><div><b>5%</b><span>desconto pagando em NTR</span></div></div>
+        <p style="font-size:11.5px;opacity:.75;margin:10px 0 0">*Ensaio do MBV em área degradada — resultados variam conforme solo, clima e manejo.</p>
       </div>
       <div class="hero-art"><div class="hero-card">
         <div class="coin">${iconFill('coin', 30)}</div>
@@ -436,13 +442,13 @@ Pages.home = async function () {
 
     <section class="section" style="margin-top:34px">
       <div style="text-align:center;margin-bottom:18px">
-        <span class="eyebrow">Parceiros e iniciativas</span>
-        <h2 style="font-size:22px">Com quem caminhamos</h2>
+        <span class="eyebrow">Registros, pactos e parceiros</span>
+        <h2 style="font-size:22px">Nosso ecossistema</h2>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center">
-        ${['IBAMA', 'Pacto Global ONU', 'Future Roots', 'ICP', 'KMA Law', 'Agroeda'].map(n => `<span style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 20px;font-family:var(--display);font-weight:700;color:var(--green-800);box-shadow:var(--shadow-sm)">${n}</span>`).join('')}
+        ${['IBAMA*', 'Pacto Global ONU', 'Future Roots', 'ICP', 'KMA Law', 'Agroeda'].map(n => `<span style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 20px;font-family:var(--display);font-weight:700;color:var(--green-800);box-shadow:var(--shadow-sm)">${n}</span>`).join('')}
       </div>
-      <p class="muted center" style="margin-top:14px;font-size:13px">Participamos do Pacto Global da ONU e mantemos projetos auditáveis em blockchain. <a href="/transparencia" style="color:var(--green-700);font-weight:600">Ver transparência on-chain</a></p>
+      <p class="muted center" style="margin-top:14px;font-size:13px">*O IBAMA é órgão regulador — a menção indica atuação em conformidade ambiental, não parceria ou endosso. Participamos do Pacto Global da ONU e mantemos projetos auditáveis em blockchain. <a href="/transparencia" style="color:var(--green-700);font-weight:600">Ver transparência on-chain</a></p>
     </section>
 
     <section class="section">
@@ -555,7 +561,7 @@ Pages.product = async function (id) {
       <div>
         <span class="cat" style="color:var(--green-700);font-weight:600">${escapeHtml(p.category_name)}</span>
         <h1>${escapeHtml(p.name)}</h1>
-        <div class="rating">${stars(p.rating, p.rating_count)} ${p.stock <= 0 ? `<span class="pill pill-cancelled">Esgotado</span>` : p.stock <= 8 ? `<span class="chip" style="margin-left:8px;background:#fbe7e1;color:#c0492f">${icon('spark', 13)} Últimas ${p.stock} unidades</span>` : `<span class="chip" style="margin-left:8px">${icon('check', 13)} Em estoque</span>`}</div>
+        <div class="rating">${p.rating_count > 0 ? stars(p.rating, p.rating_count) : `<span class="muted" style="font-size:13px">Sem avaliações ainda — seja o primeiro</span>`} ${p.stock <= 0 ? `<span class="pill pill-cancelled">Esgotado</span>` : p.stock <= 8 ? `<span class="chip" style="margin-left:8px;background:#fbe7e1;color:#c0492f">${icon('spark', 13)} Últimas ${p.stock} unidades</span>` : `<span class="chip" style="margin-left:8px">${icon('check', 13)} Em estoque</span>`}</div>
         <div class="badges" style="display:flex;gap:6px;flex-wrap:wrap;margin:14px 0">${(p.badges || []).map(b => `<span class="badge-soft">${icon('leaf', 12)} ${escapeHtml(b)}</span>`).join('')}</div>
         <div class="price-block">
           ${off ? `<span class="price-old" style="font-size:17px">${money(p.compare_at_price)}</span>` : ''}
@@ -1719,15 +1725,25 @@ Admin.users = async function () {
 };
 
 /* ======================= BOOT ======================= */
-function cookieBanner() {
-  if (localStorage.getItem('mbv_cookie_consent')) return;
+// Banner de cookies. force=true reabre para REVER a escolha (LGPD art. 8º §5º —
+// revogar deve ser tão fácil quanto consentir; link "Preferências de cookies" no rodapé).
+function cookieBanner(force) {
+  const prev = localStorage.getItem('mbv_cookie_consent');
+  if (prev && !force) return;
+  const old = document.querySelector('.cookie-bar'); if (old) old.remove();
   const el = document.createElement('div');
   el.className = 'cookie-bar';
-  el.innerHTML = `<span>🍪 Usamos cookies essenciais (sessão e carrinho) e, com sua permissão, de análise. Veja a <a href="/privacidade">Política de Privacidade</a>.</span><span style="display:inline-flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" id="ckess">Só essenciais</button><button class="btn btn-primary btn-sm" id="ckok">Aceitar todos</button></span>`;
+  el.innerHTML = `<span>🍪 Usamos cookies essenciais (sessão e carrinho) e, com sua permissão, de análise. Veja a <a href="/privacidade">Política de Privacidade</a>.${prev ? `<br><small class="muted">Escolha atual: ${prev === 'all' ? 'todos os cookies' : 'só essenciais'}.</small>` : ''}</span><span style="display:inline-flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" id="ckess">Só essenciais</button><button class="btn btn-primary btn-sm" id="ckok">Aceitar todos</button></span>`;
   document.body.appendChild(el);
   const close = (consent) => {
-    localStorage.setItem('mbv_cookie_consent', consent); el.remove();
-    if (consent === 'all' && Store.chain && Store.chain.gaId) injectGA(Store.chain.gaId);
+    localStorage.setItem('mbv_cookie_consent', consent);
+    // Registro do consentimento (accountability): escolha + data + versão da política.
+    try { localStorage.setItem('mbv_cookie_consent_meta', JSON.stringify({ choice: consent, at: new Date().toISOString(), policy: '2026-07' })); } catch (_) {}
+    el.remove();
+    if (consent === 'all' && Store.chain && Store.chain.gaId) { if (!window.gtag) injectGA(Store.chain.gaId); }
+    // Revogação: se o GA já estava ativo e o usuário recuou, recarrega sem o script de análise.
+    if (consent === 'essential' && prev === 'all' && window.gtag) { toast('Preferência salva', 'Cookies de análise desativados.', 'ok'); setTimeout(() => location.reload(), 800); }
+    else if (force) toast('Preferência salva', '', 'ok');
   };
   el.querySelector('#ckok').addEventListener('click', () => close('all'));
   el.querySelector('#ckess').addEventListener('click', () => close('essential'));

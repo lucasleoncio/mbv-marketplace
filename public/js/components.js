@@ -122,7 +122,7 @@ const UI = (function () {
         <span class="cat">${escapeHtml(p.category_name || '')}</span>
         <a href="/produto/${p.id}/${p.slug || ''}" class="title">${escapeHtml(p.name)}</a>
         <div class="badges">${badges}</div>
-        <div class="rating">${stars(p.rating, p.rating_count)}</div>
+        ${p.rating_count > 0 ? `<div class="rating">${stars(p.rating, p.rating_count)}</div>` : ''}
         ${p.stock > 0 && p.stock <= 8 ? `<div class="lowstock">${icon('spark', 11)} Últimas ${p.stock} unidades</div>` : ''}
         <div class="price-row">
           <div>
