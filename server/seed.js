@@ -1,6 +1,5 @@
 // Popula o banco com dados de demonstração do MBV (catálogo eco-agro, cupons, admin e cliente).
 const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
 const db = require('./db');
 const wallet = require('./lib/wallet');
 
@@ -214,10 +213,11 @@ function seed() {
   wallet.move(cust.lastInsertRowid, 150, 'welcome', 'Bônus de boas-vindas ao MBV', 'welcome');
   wallet.move(cust.lastInsertRowid, 2000, 'topup', 'Recarga inicial de demonstração', 'demo');
 
-  // Avaliadores de demonstração (senha aleatória inutilizável) + avaliações coerentes.
-  // O rating/rating_count do produto é CALCULADO das reviews — mesma regra do runtime (routes/products.js).
+  // Avaliadores de demonstração (login IMPOSSÍVEL: hash bcrypt de senha aleatória descartada,
+  // pré-computado — evita 4 hashSync no boot, que pesam na CPU fracionada do Render free).
+  const LOCKED_HASH = '$2a$10$uuoGrnsexR4Pvh8w2CPvd./ewYqLBi.FPWz7qBGHPVOqw65YlxJ0q';
   const reviewerIds = REVIEWER_NAMES.map((name, i) => insUser.run(
-    name, `demo.avaliador${i + 1}@mbv.com`, bcrypt.hashSync(crypto.randomBytes(18).toString('hex'), 10),
+    name, `demo.avaliador${i + 1}@mbv.com`, LOCKED_HASH,
     'customer', wallet.makeWalletAddress()
   ).lastInsertRowid);
   const insRev = db.prepare('INSERT INTO reviews (product_id, user_id, user_name, rating, comment) VALUES (?,?,?,?,?)');

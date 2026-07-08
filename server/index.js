@@ -140,19 +140,31 @@ function preflight() {
 }
 preflight();
 
-// Popula o banco na primeira execução.
-ensureSeed();
-require('./db').reindexSearch(); // índice de busca (sem acento) atualizado no boot
+// Prepara os dados (seed na primeira execução + índice de busca), com log de fase e
+// tolerância a falha: um problema aqui NÃO pode impedir o servidor de subir.
+function bootstrapData() {
+  let t = Date.now();
+  try { ensureSeed(); console.log(`  [boot] seed verificado em ${Date.now() - t}ms`); }
+  catch (e) { console.error('  [boot] ⚠️ seed falhou:', e && e.message ? e.message : e); }
+  t = Date.now();
+  try { require('./db').reindexSearch(); console.log(`  [boot] índice de busca em ${Date.now() - t}ms`); }
+  catch (e) { console.error('  [boot] ⚠️ reindex falhou:', e && e.message ? e.message : e); }
+}
 
 // Exporta o app (testes de integração fazem require e usam app.listen(0) em porta efêmera).
 module.exports = app;
 
-// Sobe o servidor apenas quando executado diretamente (npm start / node server/index.js).
 if (require.main === module) {
+  // Execução direta (npm start): abre a porta PRIMEIRO — o Render detecta o serviço
+  // imediatamente (sem "no open ports detected") — e só então roda o seed; as
+  // requisições que chegarem nesse meio-tempo aguardam na fila do event loop.
   app.listen(PORT, () => {
     console.log('\n  🌱  MBV Marketplace no ar!');
     console.log(`     →  http://localhost:${PORT}\n`);
     console.log('  Admin:   admin@mbv.com    / admin123');
     console.log('  Cliente: cliente@mbv.com  / cliente123\n');
   });
+  bootstrapData();
+} else {
+  bootstrapData(); // testes: banco pronto antes do app.listen(0)
 }
