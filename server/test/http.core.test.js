@@ -171,10 +171,11 @@ test('pedidos: cliente lista os próprios pedidos', async () => {
   assert.ok(r.data.orders.length >= 4);
 });
 
-test('registro: política de senha e CPF válido aplicados', async () => {
+test('registro: política de senha e CPF/CNPJ OBRIGATÓRIO aplicados', async () => {
   const base = { name: 'Novo Produtor', email: 'novo@teste.com' };
   assert.equal((await ctx.api('POST', '/auth/register', { body: { ...base, password: 'curta1' } })).status, 400, 'senha curta -> 400');
   assert.equal((await ctx.api('POST', '/auth/register', { body: { ...base, password: 'senha1234' } })).status, 400, 'senha comum -> 400');
+  assert.equal((await ctx.api('POST', '/auth/register', { body: { ...base, password: 'trator verde 42' } })).status, 400, 'sem CPF/CNPJ -> 400');
   assert.equal((await ctx.api('POST', '/auth/register', { body: { ...base, password: 'trator verde 42', cpf_cnpj: '111.111.111-11' } })).status, 400, 'CPF inválido -> 400');
   const ok = await ctx.api('POST', '/auth/register', { body: { ...base, password: 'trator verde 42', cpf_cnpj: '529.982.247-25', phone: '(11) 98888-7777' } });
   assert.equal(ok.status, 201);
@@ -189,7 +190,7 @@ test('2FA: ciclo completo — ativar, login em 2 etapas, replay bloqueado, desat
   // evita flakiness na borda dos 30s: se faltar <3s para o próximo passo, espera
   if (Date.now() % 30000 > 27000) await new Promise(r => setTimeout(r, 3200));
 
-  const reg = await ctx.api('POST', '/auth/register', { body: { name: 'Usuária 2FA', email: 'dois.fatores@teste.com', password: 'lavoura segura 7' } });
+  const reg = await ctx.api('POST', '/auth/register', { body: { name: 'Usuária 2FA', email: 'dois.fatores@teste.com', password: 'lavoura segura 7', cpf_cnpj: '11.222.333/0001-81' } });
   assert.equal(reg.status, 201);
   const tok = reg.data.token;
 

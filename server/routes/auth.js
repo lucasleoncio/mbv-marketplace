@@ -50,14 +50,12 @@ router.post('/register', async (req, res) => {
   const pw = validatePassword(password, { email, name });
   if (!pw.ok) return res.status(400).json({ error: pw.error });
 
-  // CPF/CNPJ é OPCIONAL no cadastro (minimização LGPD — obrigatório só no checkout,
-  // para NF-e). Quando informado: dígitos verificadores + unicidade.
-  const doc = String(req.body.cpf_cnpj || '').replace(/\D/g, '') || null;
-  if (doc) {
-    if (!validCpfCnpj(doc)) return res.status(400).json({ error: 'CPF/CNPJ inválido — confira os números digitados.' });
-    if (db.prepare('SELECT id FROM users WHERE cpf_cnpj = ?').get(doc))
-      return res.status(409).json({ error: 'Este CPF/CNPJ já está cadastrado. Tente recuperar a senha da sua conta.' });
-  }
+  // CPF/CNPJ OBRIGATÓRIO no cadastro (decisão do cliente): dígitos verificadores + unicidade.
+  const doc = String(req.body.cpf_cnpj || '').replace(/\D/g, '');
+  if (!doc) return res.status(400).json({ error: 'Informe seu CPF ou CNPJ.' });
+  if (!validCpfCnpj(doc)) return res.status(400).json({ error: 'CPF/CNPJ inválido — confira os números digitados.' });
+  if (db.prepare('SELECT id FROM users WHERE cpf_cnpj = ?').get(doc))
+    return res.status(409).json({ error: 'Este CPF/CNPJ já está cadastrado. Tente recuperar a senha da sua conta.' });
   const phone = String(req.body.phone || '').replace(/\D/g, '') || null;
   if (phone && (phone.length < 10 || phone.length > 11))
     return res.status(400).json({ error: 'Telefone inválido — use DDD + número.' });

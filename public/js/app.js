@@ -1643,8 +1643,15 @@ function wirePwMeter(box, inputId) {
 }
 
 /* ---------- Campo de senha com mostrar/ocultar (compartilhado: entrar, cadastro, redefinir) ---------- */
-function passField(id, label, placeholder, autocomplete) {
-  return `<div class="field"><label for="${id}">${label}</label><div class="pass-wrap">
+// Dica exibida no ícone ⓘ ao lado do rótulo (regras + recomendações da senha).
+const PASS_RULES_TIP = `<b>Para a senha ser aceita:</b><br>
+· Pelo menos <b>8 caracteres</b> (máximo 64)<br>
+· Não pode ser uma senha comum (123456, senha123…)<br>
+· Não pode conter seu nome ou e-mail<br>
+<b>Recomendado:</b> 12+ caracteres misturando letras, números e símbolos — ou uma frase fácil de lembrar, ex.: <i>trator verde 42</i>.`;
+function passField(id, label, placeholder, autocomplete, withRules) {
+  const tip = withRules ? ` <span class="tip-wrap"><button type="button" class="tip-btn" aria-label="Ver regras da senha" aria-describedby="${id}_tip">${icon('info', 15)}</button><span class="tip" role="tooltip" id="${id}_tip">${PASS_RULES_TIP}</span></span>` : '';
+  return `<div class="field"><label for="${id}">${label}${tip}</label><div class="pass-wrap">
     <input id="${id}" type="password" placeholder="${placeholder}" autocomplete="${autocomplete}">
     <button type="button" class="pass-eye" data-eye="${id}" aria-label="Mostrar senha" aria-pressed="false">${icon('eye', 17)}</button>
   </div></div>`;
@@ -1738,10 +1745,10 @@ Pages.auth = function (query) {
         <div class="field"><label for="r_name">Nome completo</label><input id="r_name" autocomplete="name"></div>
         <div class="field"><label for="r_email">E-mail</label><input id="r_email" type="email" autocomplete="email" inputmode="email"></div>
         <div class="grid-2">
-          <div class="field"><label for="r_doc">CPF/CNPJ <span class="muted" style="font-weight:400">(opcional)</span></label><input id="r_doc" inputmode="numeric" placeholder="000.000.000-00"></div>
+          <div class="field"><label for="r_doc">CPF/CNPJ</label><input id="r_doc" inputmode="numeric" placeholder="000.000.000-00"></div>
           <div class="field"><label for="r_phone">Celular <span class="muted" style="font-weight:400">(opcional)</span></label><input id="r_phone" inputmode="tel" autocomplete="tel-national" placeholder="(00) 00000-0000"></div>
         </div>
-        ${passField('r_pass', 'Senha', 'Mínimo 8 caracteres', 'new-password')}
+        ${passField('r_pass', 'Senha', 'Mínimo 8 caracteres', 'new-password', true)}
         <div class="pw-meter" id="pwMeter" hidden><div class="bar"><span></span></div><small></small></div>
         <p class="muted" style="font-size:12px;margin:2px 0 12px">Usamos seus dados apenas para processar pedidos, emitir nota fiscal e entregar sua compra, conforme a LGPD. <a href="/privacidade" style="color:var(--green-700);font-weight:600">Política de Privacidade</a></p>
         <button type="submit" class="btn btn-primary btn-block btn-lg" id="regBtn">Criar conta</button>
@@ -1756,8 +1763,8 @@ Pages.auth = function (query) {
         fieldError(name, name.value.trim() ? '' : 'Informe seu nome.');
         fieldError(email, /.+@.+\..+/.test(email.value.trim()) ? '' : 'Informe um e-mail válido.');
         fieldError(pass, pass.value.length >= 8 ? '' : 'A senha precisa de pelo menos 8 caracteres.');
-        fieldError(doc, !doc.value.trim() || validDoc(doc.value) ? '' : 'CPF/CNPJ inválido — confira os números.');
-        if (!name.value.trim() || !/.+@.+\..+/.test(email.value.trim()) || pass.value.length < 8 || (doc.value.trim() && !validDoc(doc.value))) return;
+        fieldError(doc, doc.value.trim() ? (validDoc(doc.value) ? '' : 'CPF/CNPJ inválido — confira os números.') : 'Informe seu CPF ou CNPJ.');
+        if (!name.value.trim() || !/.+@.+\..+/.test(email.value.trim()) || pass.value.length < 8 || !doc.value.trim() || !validDoc(doc.value)) return;
         try {
           await submitWith(box.querySelector('#regBtn'), 'Criando conta…', async () => {
             const r = await API.post('/auth/register', {
@@ -1797,7 +1804,7 @@ Pages.reset = function (query) {
   mount(`<div class="container"><div class="auth-wrap">
     <h1>Redefinir senha</h1><p class="muted" style="margin:0 0 18px">Crie uma nova senha para sua conta.</p>
     <form id="rsForm" novalidate>
-    ${passField('rs_pass', 'Nova senha', 'Mínimo 8 caracteres', 'new-password')}
+    ${passField('rs_pass', 'Nova senha', 'Mínimo 8 caracteres', 'new-password', true)}
     <div class="pw-meter" id="pwMeter" hidden><div class="bar"><span></span></div><small></small></div>
     <button type="submit" class="btn btn-primary btn-block btn-lg" id="rsBtn">Salvar nova senha</button>
     </form>

@@ -50,6 +50,14 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .spec-table td:first-child{color:var(--muted);width:40%;font-weight:600}
 .mapa-box{display:flex;gap:10px;align-items:flex-start;background:var(--green-50);border:1px solid var(--green-100);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13.5px;color:var(--green-800)}
 .mapa-box a{color:var(--green-700);font-weight:600}
+/* Tooltip de dicas (ícone ⓘ — regras da senha) */
+.tip-wrap{position:relative;display:inline-flex;vertical-align:middle;margin-left:4px}
+.tip-btn{background:none;border:0;color:var(--muted);padding:2px;display:inline-flex;align-items:center;cursor:help;border-radius:50%}
+.tip-btn:hover{color:var(--green-700)}
+.tip{position:absolute;bottom:calc(100% + 10px);left:-12px;width:min(300px,82vw);background:var(--green-900);color:#eef6f0;font-size:12.5px;line-height:1.6;font-weight:400;padding:12px 14px;border-radius:12px;box-shadow:var(--shadow);opacity:0;visibility:hidden;transition:opacity .15s ease;z-index:80;pointer-events:none}
+.tip::after{content:'';position:absolute;top:100%;left:18px;border:7px solid transparent;border-top-color:var(--green-900)}
+.tip b{color:#fff}
+.tip-wrap:hover .tip,.tip-btn:focus-visible + .tip,.tip-btn:focus + .tip{opacity:1;visibility:visible}
 /* Medidor de força da senha */
 .pw-meter{margin:-6px 0 12px}
 .pw-meter .bar{height:6px;border-radius:4px;background:var(--line);overflow:hidden}
