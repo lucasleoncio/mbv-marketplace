@@ -127,6 +127,26 @@ test('cancelamento (admin): repõe estoque e estorna NTR', async () => {
   assert.equal(wFinal, esperado, 'estorno deve devolver o NTR pago');
 });
 
+test('busca: relevância ranqueia mérito; mais vendidos responde', async () => {
+  const s = await ctx.api('GET', '/products?q=' + encodeURIComponent('fertilizante foliar'));
+  assert.equal(s.status, 200);
+  assert.ok(s.data.items.length > 0);
+  assert.match(s.data.items[0].name.toLowerCase(), /fertilizante foliar/, 'melhor match deve vir primeiro');
+  const bs = await ctx.api('GET', '/products?sort=best_sellers');
+  assert.equal(bs.status, 200);
+  assert.ok(bs.data.items.length > 0);
+});
+
+test('avise-me quando chegar: registra p/ esgotado, recusa em estoque, dispara na reposição', async () => {
+  await ctx.api('PUT', '/products/8', { token: admin, body: { stock: 0 } });
+  assert.equal((await ctx.api('POST', '/products/8/notify', { body: { email: 'x' } })).status, 400, 'e-mail inválido -> 400');
+  assert.equal((await ctx.api('POST', '/products/8/notify', { body: { email: 'produtor@teste.com' } })).status, 201);
+  assert.equal((await ctx.api('POST', '/products/8/notify', { body: { email: 'produtor@teste.com' } })).status, 201, 'repetido é idempotente');
+  const back = await ctx.api('PUT', '/products/8', { token: admin, body: { stock: 10 } });
+  assert.equal(back.status, 200); // reposição dispara o aviso (e-mail em dev-log)
+  assert.equal((await ctx.api('POST', '/products/8/notify', { body: { email: 'p2@teste.com' } })).status, 400, 'em estoque -> não registra');
+});
+
 test('cupons: relatório é só do admin', async () => {
   assert.equal((await ctx.api('GET', '/coupons/report', { token: admin })).status, 200);
   assert.equal((await ctx.api('GET', '/coupons/report', { token: cliente })).status, 403);

@@ -91,4 +91,12 @@ async function sendAbandonedCart(user, items) {
   return send(user.email, 'Seu carrinho está esperando 🌱 — MBV', layout('Você esqueceu algo no carrinho', body));
 }
 
-module.exports = { send, sendOrderConfirmation, sendPasswordReset, sendVerification, sendOrderShipped, sendOrderDelivered, sendAbandonedCart };
+// "Avise-me quando chegar": produto reposto no estoque.
+async function sendBackInStock(to, product) {
+  const body = `<p>Boa notícia! O produto <b>${esc(product.name)}</b> voltou ao estoque no marketplace MBV.</p>
+    <p style="margin:18px 0"><a href="${APP_URL}/produto/${product.id}/${esc(product.slug || '')}" style="background:#1f6e47;color:#fff;text-decoration:none;padding:11px 20px;border-radius:999px;font-weight:600">Ver produto</a></p>
+    <p style="color:#5d6f64;font-size:13px">Você recebeu este aviso porque pediu para ser avisado. Os estoques podem acabar rápido.</p>`;
+  return send(to, `${product.name} voltou ao estoque — MBV`, layout('Voltou ao estoque! 🌱', body));
+}
+
+module.exports = { send, sendOrderConfirmation, sendPasswordReset, sendVerification, sendOrderShipped, sendOrderDelivered, sendAbandonedCart, sendBackInStock };

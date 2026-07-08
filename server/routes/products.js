@@ -6,6 +6,7 @@ const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { DEMO_MODE } = require('../config');
 const { normalize } = require('../lib/text');
+const email = require('../lib/email');
 
 // Sinônimos/termos agro para a busca encontrar pela intenção (já normalizados, sem acento).
 const SYNONYMS = {
@@ -79,33 +80,46 @@ router.get('/', (req, res) => {
 
   const where = ['p.active = 1'];
   const params = {};
+  let relevance = null; // score de relevância quando há busca
   if (q) {
     const terms = new Set();
     normalize(q).split(' ').filter(Boolean).forEach(w => {
       terms.add(w);
       if (SYNONYMS[w]) SYNONYMS[w].split(' ').forEach(t => terms.add(t));
     });
-    const conds = [...terms].map((t, i) => { params['s' + i] = `%${t}%`; return `p.search_text LIKE @s${i}`; });
+    const list = [...terms];
+    const conds = list.map((t, i) => { params['s' + i] = `%${t}%`; return `p.search_text LIKE @s${i}`; });
     params.qraw = `%${q}%`;
     conds.push('p.name LIKE @qraw', 'p.description LIKE @qraw'); // fallback (com acento)
     where.push('(' + conds.join(' OR ') + ')');
+    // Relevância: nº de termos casados pesa mais; frase crua no nome dá bônus.
+    relevance = `((${list.map((_, i) => `(p.search_text LIKE @s${i})`).join(' + ')}) * 3 + (CASE WHEN p.name LIKE @qraw THEN 5 ELSE 0 END))`;
   }
   if (category) { where.push('c.slug = @cat'); params.cat = category; }
   if (min) { where.push('p.price >= @min'); params.min = Number(min); }
   if (max) { where.push('p.price <= @max'); params.max = Number(max); }
   if (featured === '1') where.push('p.featured = 1');
 
+  // "Mais vendidos" de verdade: soma de itens de pedidos pagos (não cancelados).
+  const soldJoin = sort === 'best_sellers'
+    ? `LEFT JOIN (SELECT oi.product_id AS pid, SUM(oi.quantity) AS sold FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id WHERE o.payment_status = 'paid' AND o.status != 'cancelled'
+        GROUP BY oi.product_id) s ON s.pid = p.id`
+    : '';
+
   let order = 'p.featured DESC, p.id DESC';
   if (sort === 'price_asc') order = 'p.price ASC';
   else if (sort === 'price_desc') order = 'p.price DESC';
   else if (sort === 'newest') order = 'p.id DESC';
   else if (sort === 'rating') order = 'p.rating DESC, p.rating_count DESC';
+  else if (sort === 'best_sellers') order = 'COALESCE(s.sold, 0) DESC, p.featured DESC, p.id DESC';
+  else if (relevance) order = `${relevance} DESC, p.featured DESC, p.rating_count DESC, p.id DESC`; // busca sem sort explícito: mérito
 
   const clause = where.length ? 'WHERE ' + where.join(' AND ') : '';
   const total = db.prepare(`SELECT COUNT(*) n FROM products p LEFT JOIN categories c ON c.id=p.category_id ${clause}`).get(params).n;
   const items = db.prepare(`
     SELECT p.*, c.name AS category_name, c.slug AS category_slug
-    FROM products p LEFT JOIN categories c ON c.id = p.category_id
+    FROM products p LEFT JOIN categories c ON c.id = p.category_id ${soldJoin}
     ${clause} ORDER BY ${order} LIMIT @limit OFFSET @offset
   `).all({ ...params, limit, offset });
 
@@ -126,6 +140,30 @@ router.get('/by-ids', (req, res) => {
 });
 
 // ---------- Detalhe ----------
+// POST /api/products/:id/notify — "avise-me quando chegar" (captura demanda de esgotado)
+router.post('/:id/notify', (req, res) => {
+  const p = db.prepare('SELECT id, name, stock FROM products WHERE id = ? AND active = 1').get(req.params.id);
+  if (!p) return res.status(404).json({ error: 'Produto não encontrado.' });
+  const mail = String(req.body.email || (req.user && req.user.email) || '').trim().toLowerCase();
+  if (!/.+@.+\..+/.test(mail)) return res.status(400).json({ error: 'Informe um e-mail válido.' });
+  if (p.stock > 0) return res.status(400).json({ error: 'Este produto está disponível — adicione ao carrinho.' });
+  db.prepare(`
+    INSERT INTO stock_alerts (product_id, email) VALUES (?,?)
+    ON CONFLICT(product_id, email) DO UPDATE SET notified = 0
+  `).run(p.id, mail);
+  res.status(201).json({ ok: true });
+});
+
+// Reposição de estoque: avisa quem pediu (fire-and-forget; e-mail em dev-log sem chave).
+function notifyBackInStock(p) {
+  try {
+    const rows = db.prepare('SELECT email FROM stock_alerts WHERE product_id = ? AND notified = 0').all(p.id);
+    if (!rows.length) return;
+    db.prepare('UPDATE stock_alerts SET notified = 1 WHERE product_id = ? AND notified = 0').run(p.id);
+    for (const r of rows) email.sendBackInStock(r.email, p).catch(() => {});
+  } catch (e) { console.error('[back-in-stock]', e.message); }
+}
+
 router.get('/:id', (req, res) => {
   const p = db.prepare(`
     SELECT p.*, c.name AS category_name, c.slug AS category_slug
@@ -237,6 +275,8 @@ router.put('/:id', requireAdmin, (req, res) => {
       badges=@badges, specs=@specs, mapa_reg=@mapa_reg, featured=@featured, co2=@co2, active=@active WHERE id=@id
   `).run({ ...d, slug: slugify(d.name), id: existing.id });
   const p = db.prepare('SELECT * FROM products WHERE id = ?').get(existing.id);
+  // Produto voltou ao estoque? Dispara o "avise-me quando chegar".
+  if (existing.stock <= 0 && p.stock > 0) notifyBackInStock(p);
   res.json({ product: serialize(p) });
 });
 

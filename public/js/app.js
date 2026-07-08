@@ -150,7 +150,10 @@ function renderHeader() {
   </div>`;
 
   document.getElementById('searchForm').addEventListener('submit', e => {
-    e.preventDefault(); go('/produtos' + buildQuery({ q: document.getElementById('searchInput').value.trim() }));
+    e.preventDefault();
+    const q = document.getElementById('searchInput').value.trim();
+    if (q) track('search', { search_term: q });
+    go('/produtos' + buildQuery({ q }));
   });
   const pop = document.getElementById('acctPop');
   const acctBtn = document.getElementById('acctBtn');
@@ -197,17 +200,35 @@ function renderFooter() {
   if (ck) ck.addEventListener('click', e => { e.preventDefault(); cookieBanner(true); });
 }
 
+/* ---------------- Analytics de funil (GA4 e-commerce) ----------------
+   No-op sem consentimento de cookies/GA_ID: gtag só existe após o aceite. */
+function track(event, params) {
+  try { if (window.gtag) gtag('event', event, params || {}); } catch (_) {}
+}
+function gaItem(p, qty) {
+  return {
+    item_id: String(p.product_id || p.id || ''),
+    item_name: p.name,
+    price: Number(p.price) || 0,
+    quantity: qty || p.quantity || 1,
+    ...(p.category_name || p.category_slug ? { item_category: p.category_name || p.category_slug } : {})
+  };
+}
+
 /* ---------------- Ações globais (carrinho/favoritos) ---------------- */
 async function addToCart(id, qty = 1) {
   id = Number(id); qty = Math.max(1, qty);
   if (!Store.isAuthed()) {
     Store.guestAddToCart(id, qty); renderHeader();
+    track('add_to_cart', { items: [{ item_id: String(id), quantity: qty }] });
     toast('Adicionado ao carrinho', 'Você finaliza ao entrar — seu carrinho fica salvo.', 'ok');
     return;
   }
   try {
     const r = await API.post('/cart', { product_id: id, quantity: qty });
-    Store.cartCount = r.count; renderHeader(); toast('Adicionado ao carrinho', '', 'ok');
+    Store.cartCount = r.count; renderHeader();
+    track('add_to_cart', { items: [{ item_id: String(id), quantity: qty }] });
+    toast('Adicionado ao carrinho', '', 'ok');
   } catch (e) { toast('Ops', e.message, 'err'); }
 }
 function paintFav(id, on) {
@@ -470,7 +491,7 @@ Pages.home = async function () {
     </section>
 
     <section class="section">
-      <div class="section-head"><div><span class="eyebrow">Seleção MBV</span><h2>Destaques</h2><p>Os queridinhos de quem produz com responsabilidade.</p></div><a href="/produtos${buildQuery({ sort: 'rating' })}" class="btn btn-ghost btn-sm">Mais vendidos</a></div>
+      <div class="section-head"><div><span class="eyebrow">Seleção MBV</span><h2>Destaques</h2><p>Os queridinhos de quem produz com responsabilidade.</p></div><a href="/produtos${buildQuery({ sort: 'best_sellers' })}" class="btn btn-ghost btn-sm">Mais vendidos</a></div>
       <div class="product-grid">${featured.map(productCard).join('')}</div>
     </section>
 
@@ -527,7 +548,7 @@ Pages.catalog = async function (query) {
         <div class="range-row"><input id="fMin" type="number" placeholder="Mín" value="${params.min}"><span>—</span><input id="fMax" type="number" placeholder="Máx" value="${params.max}"></div>
         <button class="btn btn-light btn-block btn-sm" id="applyPrice" style="margin-top:10px">Aplicar</button>
         <h4>Ordenar</h4>
-        ${[['', 'Relevância'], ['price_asc', 'Menor preço'], ['price_desc', 'Maior preço'], ['rating', 'Melhor avaliados'], ['newest', 'Novidades']].map(([v, l]) => `<label><input type="radio" name="sort" value="${v}" ${params.sort === v ? 'checked' : ''}> ${l}</label>`).join('')}
+        ${[['', 'Relevância'], ['best_sellers', 'Mais vendidos'], ['price_asc', 'Menor preço'], ['price_desc', 'Maior preço'], ['rating', 'Melhor avaliados'], ['newest', 'Novidades']].map(([v, l]) => `<label><input type="radio" name="sort" value="${v}" ${params.sort === v ? 'checked' : ''}> ${l}</label>`).join('')}
       </aside>
       <div>
         <div class="toolbar">
@@ -564,6 +585,7 @@ Pages.product = async function (id) {
   loading();
   const { product: p, reviews, related } = await API.get('/products/' + id);
   setTitle(p.name);
+  track('view_item', { currency: 'BRL', value: Number(p.price) || 0, items: [gaItem(p)] });
   const off = p.compare_at_price && p.compare_at_price > p.price ? Math.round((1 - p.price / p.compare_at_price) * 100) : 0;
   const fav = Store.favorites.has(p.id);
   trackRecent(p.id);
@@ -605,6 +627,14 @@ Pages.product = async function (id) {
           <button class="btn btn-dark btn-lg" id="buyBtn" ${p.stock <= 0 ? 'disabled' : ''}>Comprar agora</button>
           <button class="btn btn-ghost btn-lg fav ${fav ? 'on' : ''}" data-fav="${p.id}" style="${fav ? 'color:var(--danger)' : ''}" aria-pressed="${fav}" aria-label="Favoritar produto">${iconFill('heart', 18)}</button>
         </div>
+        ${p.stock <= 0 ? `<div class="notify-box" id="notifyBox">
+          <b>${icon('spark', 14)} Produto esgotado</b>
+          <p class="muted" style="font-size:13px;margin:4px 0 10px">Deixe seu e-mail e avisaremos assim que chegar.</p>
+          <form id="notifyForm" style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="notifyEmail" type="email" placeholder="seu@email.com" autocomplete="email" inputmode="email" value="${escapeHtml((Store.user && Store.user.email) || '')}" style="flex:1;min-width:180px" aria-label="E-mail para aviso de estoque">
+            <button type="submit" class="btn btn-primary">Avise-me</button>
+          </form>
+        </div>` : ''}
         <div class="cmp-row"><button class="btn btn-ghost btn-sm" id="cmpBtn"></button><a href="/comparar" class="btn btn-ghost btn-sm" id="cmpLink" style="display:none"></a></div>
         <div class="trust-row">
           <div><div class="ic">${icon('shield', 18)}</div><span>Compra<br>protegida</span></div>
@@ -691,6 +721,19 @@ Pages.product = async function (id) {
   }
   mainImg.addEventListener('click', () => {
     UI.openModal(p.name, `<img src="${gallery[gCur]}" alt="${escapeHtml(p.name)}" style="width:100%;border-radius:12px">`, { maxWidth: 720 });
+  });
+
+  // "Avise-me quando chegar" (produto esgotado): captura o e-mail para o aviso de reposição.
+  const nf = app.querySelector('#notifyForm');
+  if (nf) nf.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const mail = app.querySelector('#notifyEmail').value.trim();
+    if (!/.+@.+\..+/.test(mail)) return toast('E-mail inválido', 'Confira o endereço digitado.', 'err');
+    try {
+      await API.post(`/products/${p.id}/notify`, { email: mail });
+      track('generate_lead', { item_id: String(p.id) });
+      app.querySelector('#notifyBox').innerHTML = `<b>${icon('check', 15)} Pronto!</b><p class="muted" style="font-size:13px;margin:4px 0 0">Você será avisado em <b>${escapeHtml(mail)}</b> assim que o produto voltar.</p>`;
+    } catch (e) { toast('Ops', e.message, 'err'); }
   });
 
   // Barra de compra fixa no mobile: aparece quando a buy-row original sai da tela.
@@ -807,6 +850,7 @@ async function refreshCartView() {
 Pages.cart = async function () {
   loading();
   const data = await loadCartData();
+  if (data.items.length) track('view_cart', { currency: 'BRL', value: data.guest ? data.subtotal : data.totals.total, items: data.items.map(i => gaItem(i)) });
   if (!data.items.length) {
     return mount(`<div class="container"><div class="empty" style="margin:50px 0"><div class="ic">${icon('cart', 32)}</div><h2>Seu carrinho está vazio</h2><p class="muted">Que tal explorar nossos insumos sustentáveis?</p><a href="/produtos" class="btn btn-primary btn-lg" style="margin-top:16px">Ver produtos</a></div></div>`);
   }
@@ -823,7 +867,7 @@ Pages.cart = async function () {
   if (!data.guest) wireSummary('carrinho');
   try {
     const cartIds = new Set(data.items.map(i => i.product_id));
-    const { items: recs } = await API.get('/products?sort=rating&limit=8');
+    const { items: recs } = await API.get('/products?sort=best_sellers&limit=8');
     const list = recs.filter(p => !cartIds.has(p.id)).slice(0, 4);
     const cs = app.querySelector('#crossSell');
     if (cs && list.length) cs.innerHTML = `<div class="section-head"><h2 style="font-size:20px">Complete seu manejo</h2></div><div class="product-grid">${list.map(productCard).join('')}</div>`;
@@ -877,6 +921,7 @@ function wireCartLines() {
     line.querySelector('[data-rm]').addEventListener('click', async () => {
       if (authed) { await API.del('/cart/' + id); await Store.refreshCart(); }
       else { Store.guestSetQty(id, 0); }
+      track('remove_from_cart', { items: [{ item_id: String(id) }] });
       refreshCartView();
     });
   });
@@ -977,6 +1022,7 @@ Pages.checkout = async function () {
   const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon, payment: Flow.payment, cep: Flow.cep, cpf: Flow.cpf }));
   if (!data.items.length) return go('/carrinho');
   await Store.refreshUser();
+  track('begin_checkout', { currency: 'BRL', value: data.totals.total, items: data.items.map(i => gaItem(i)) });
 
   mount(`<div class="container">
     <div class="breadcrumb"><a href="/carrinho">Carrinho</a> ${icon('arrow', 13)} <span>Checkout</span></div>
@@ -1077,6 +1123,7 @@ function ntrNudge() {
 }
 function setPayment(method) {
   Flow.payment = method;
+  track('add_payment_info', { payment_type: method });
   app.querySelectorAll('[data-pay]').forEach(o => o.classList.toggle('active', o.dataset.pay === method));
   const panel = app.querySelector('#payPanel');
   const mpOn = Store.chain && Store.chain.mpEnabled;
@@ -1167,6 +1214,12 @@ async function placeOrder() {
   try {
     const resp = await API.post('/orders', body);
     Flow.coupon = ''; await Store.refreshCart(); await Store.refreshUser(); renderHeader();
+    const ord = resp.order;
+    if (ord) track('purchase', {
+      transaction_id: ord.code, currency: 'BRL', value: ord.total, shipping: ord.shipping,
+      payment_type: ord.payment_method, payment_status: ord.payment_status,
+      items: (ord.items || []).map(it => gaItem(it, it.quantity))
+    });
     if (resp.redirect) { toast('Redirecionando…', 'Você será levado ao Mercado Pago.', 'info'); window.location.href = resp.redirect; return; }
     const order = resp.order;
     if (order.payment_status === 'paid') toast('Pedido confirmado!', 'Pedido ' + order.code, 'ok');

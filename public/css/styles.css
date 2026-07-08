@@ -50,6 +50,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .spec-table td:first-child{color:var(--muted);width:40%;font-weight:600}
 .mapa-box{display:flex;gap:10px;align-items:flex-start;background:var(--green-50);border:1px solid var(--green-100);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13.5px;color:var(--green-800)}
 .mapa-box a{color:var(--green-700);font-weight:600}
+/* Avise-me quando chegar (produto esgotado) */
+.notify-box{margin-top:14px;background:#fdf7e8;border:1px solid #f0e3bd;border-radius:12px;padding:14px 16px}
+.notify-box b{display:flex;align-items:center;gap:6px;color:#7a5a10;font-size:14px}
+.notify-box input{padding:11px 13px;border:1px solid var(--line);border-radius:11px;font-size:14px;font-family:inherit}
 /* Linha do tempo do pedido */
 .timeline{display:flex;align-items:flex-start;max-width:620px;margin:0 auto 26px;padding:0 10px}
 .tl-step{display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;min-width:74px}

@@ -182,6 +182,15 @@ CREATE TABLE IF NOT EXISTS reviews (
   UNIQUE(product_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS stock_alerts (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  email       TEXT NOT NULL,
+  notified    INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(product_id, email)
+);
+
 CREATE TABLE IF NOT EXISTS auth_tokens (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
