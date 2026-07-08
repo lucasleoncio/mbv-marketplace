@@ -68,6 +68,7 @@ test('checkout CARD: paga, baixa estoque e credita cashback', async () => {
   assert.equal(r.status, 201);
   assert.equal(r.data.order.payment_status, 'paid');
   assert.ok(r.data.order.code.startsWith('MBV-'));
+  assert.ok(r.data.order.ship_prazo, 'pedido deve gravar o prazo estimado por região do CEP');
   const after = (await ctx.api('GET', '/products/2')).data.product.stock;
   assert.equal(after, before - 2, 'estoque deve baixar exatamente a quantidade comprada');
 });

@@ -213,6 +213,19 @@ async function addToCart(id, qty = 1) {
 function paintFav(id, on) {
   document.querySelectorAll(`[data-fav="${id}"]`).forEach(b => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
 }
+// Recompra em 1 clique: repõe os itens de um pedido no carrinho (insumo é compra cíclica).
+async function buyAgain(order) {
+  let ok = 0, fail = 0;
+  for (const it of (order.items || [])) {
+    if (!it.product_id) { fail++; continue; }
+    try { await API.post('/cart', { product_id: it.product_id, quantity: it.quantity }); ok++; }
+    catch (_) { fail++; }
+  }
+  await Store.refreshCart(); renderHeader();
+  if (!ok) return toast('Não foi possível repetir o pedido', 'Os itens não estão mais disponíveis.', 'err');
+  toast('Itens adicionados ao carrinho', fail ? `${fail} item(ns) indisponível(is) ficou(aram) de fora.` : '', fail ? 'info' : 'ok');
+  go('/carrinho');
+}
 async function toggleFav(id) {
   id = Number(id);
   if (!Store.isAuthed()) {
@@ -606,7 +619,7 @@ Pages.product = async function (id) {
         </div>` : ''}
         <div class="ship-calc">
           <label>${icon('truck', 15)} Calcular frete e prazo</label>
-          <div class="row"><input id="shipCep" inputmode="numeric" maxlength="9" placeholder="Digite seu CEP"><button class="btn btn-light" id="shipBtn">Calcular</button></div>
+          <div class="row"><input id="shipCep" inputmode="numeric" maxlength="9" placeholder="Digite seu CEP" value="${escapeHtml(savedCep())}"><button class="btn btn-light" id="shipBtn">Calcular</button></div>
           <div id="shipResult" class="muted" style="font-size:13px;margin-top:8px"></div>
         </div>
         ${p.co2 ? `<div class="eco-note"><div class="ic">${icon('leaf', 20)}</div><div><b>Impacto positivo (estimado)</b><br><span class="muted" style="font-size:13.5px">Estimativa de redução de ~${p.co2} kg de CO₂e por unidade vs. manejo convencional. <a href="/metodologia-co2" style="color:var(--green-700);font-weight:600">Ver metodologia</a></span></div></div>` : ''}
@@ -704,6 +717,7 @@ Pages.product = async function (id) {
       out.textContent = 'Calculando…';
       try {
         const r = await API.get(`/shipping?cep=${cep}&value=${p.price}`);
+        saveCep(cep); // lembra o CEP para o checkout e as próximas visitas
         out.innerHTML = r.free
           ? `<b class="green">Frete grátis</b> · entrega em ${r.prazo} dias úteis`
           : `Frete: <b>${money(r.shipping)}</b> · entrega em ${r.prazo} dias úteis. <span class="muted">Grátis acima de ${money(r.freeAbove)}.</span>`;
@@ -755,34 +769,53 @@ function reviewRow(r) {
 const Flow = { coupon: '', payment: 'card', cep: '', cpf: '' };
 
 /* ---------- CART ---------- */
+async function loadCartData() {
+  if (Store.isAuthed()) return API.get('/cart' + buildQuery({ coupon: Flow.coupon }));
+  const cart = Store.guestCart();
+  if (!cart.length) return { items: [], count: 0, guest: true };
+  const { items: prods } = await API.get('/products/by-ids?ids=' + cart.map(i => i.product_id).join(','));
+  const byId = {}; prods.forEach(p => { byId[p.id] = p; });
+  const items = cart.filter(i => byId[i.product_id]).map(i => {
+    const p = byId[i.product_id];
+    return { product_id: p.id, name: p.name, price: p.price, image: p.image, unit: p.unit, category_slug: p.category_slug, pack_size: p.pack_size, quantity: i.quantity };
+  });
+  const subtotal = Math.round(items.reduce((s, it) => s + it.price * it.quantity, 0) * 100) / 100;
+  return { items, count: items.reduce((s, i) => s + i.quantity, 0), subtotal, guest: true };
+}
+// Atualiza linhas, contagem e resumo SEM remontar a página (sem salto de scroll a cada toque).
+async function refreshCartView() {
+  const data = await loadCartData();
+  renderHeader();
+  if (!data.items.length) return Pages.cart(); // estado vazio: re-render completo
+  const byId = {}; data.items.forEach(i => { byId[i.product_id] = i; });
+  app.querySelectorAll('[data-line]').forEach(line => {
+    const it = byId[Number(line.dataset.line)];
+    if (!it) { line.remove(); return; }
+    const q = line.querySelector('[data-qval]');
+    if (q && document.activeElement !== q) q.value = it.quantity;
+    const t = line.querySelector('[data-ltotal]');
+    if (t) t.textContent = money(it.price * it.quantity);
+  });
+  const cnt = app.querySelector('#cartCount');
+  if (cnt) cnt.textContent = `${data.count} item(ns)`;
+  const wrap = app.querySelector('#cartSummaryWrap');
+  if (wrap) {
+    wrap.innerHTML = data.guest ? guestSummary(data.subtotal) : summaryBox(data.totals, 'carrinho');
+    if (!data.guest) wireSummary('carrinho');
+  }
+}
 Pages.cart = async function () {
   loading();
-  let data;
-  if (Store.isAuthed()) {
-    data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon }));
-  } else {
-    const cart = Store.guestCart();
-    if (!cart.length) data = { items: [], count: 0, guest: true };
-    else {
-      const { items: prods } = await API.get('/products/by-ids?ids=' + cart.map(i => i.product_id).join(','));
-      const byId = {}; prods.forEach(p => { byId[p.id] = p; });
-      const items = cart.filter(i => byId[i.product_id]).map(i => {
-        const p = byId[i.product_id];
-        return { product_id: p.id, name: p.name, price: p.price, image: p.image, unit: p.unit, category_slug: p.category_slug, pack_size: p.pack_size, quantity: i.quantity };
-      });
-      const subtotal = Math.round(items.reduce((s, it) => s + it.price * it.quantity, 0) * 100) / 100;
-      data = { items, count: items.reduce((s, i) => s + i.quantity, 0), subtotal, guest: true };
-    }
-  }
+  const data = await loadCartData();
   if (!data.items.length) {
     return mount(`<div class="container"><div class="empty" style="margin:50px 0"><div class="ic">${icon('cart', 32)}</div><h2>Seu carrinho está vazio</h2><p class="muted">Que tal explorar nossos insumos sustentáveis?</p><a href="/produtos" class="btn btn-primary btn-lg" style="margin-top:16px">Ver produtos</a></div></div>`);
   }
   mount(`<div class="container">
     <h1 style="margin:24px 0 4px;font-size:27px">Seu carrinho</h1>
-    <p class="muted" style="margin-bottom:18px">${data.count} item(ns)</p>
+    <p class="muted" style="margin-bottom:18px" id="cartCount">${data.count} item(ns)</p>
     <div class="cart-wrap">
       <div id="cartLines">${data.items.map(cartLine).join('')}</div>
-      ${data.guest ? guestSummary(data.subtotal) : summaryBox(data.totals, 'carrinho')}
+      <div id="cartSummaryWrap">${data.guest ? guestSummary(data.subtotal) : summaryBox(data.totals, 'carrinho')}</div>
     </div>
     <section class="section" id="crossSell" style="margin-top:30px"></section>
   </div>`);
@@ -813,29 +846,38 @@ function cartLine(it) {
     <div>
       <a href="/produto/${it.product_id}" style="font-weight:600;font-family:var(--display)">${escapeHtml(it.name)}</a>
       <div class="muted" style="font-size:13px;margin:3px 0 8px">${money(it.price)} ${it.unit !== 'un' ? '/ ' + escapeHtml(it.unit) : ''}</div>
-      <div class="qty"><button data-cq="-1" aria-label="Diminuir quantidade">−</button><input value="${it.quantity}" data-qval readonly aria-label="Quantidade de ${escapeHtml(it.name)}"><button data-cq="1" aria-label="Aumentar quantidade">+</button></div>
+      <div class="qty"><button data-cq="-1" aria-label="Diminuir quantidade">−</button><input value="${it.quantity}" data-qval inputmode="numeric" aria-label="Quantidade de ${escapeHtml(it.name)}"><button data-cq="1" aria-label="Aumentar quantidade">+</button></div>
     </div>
     <div style="text-align:right">
-      <div class="price" style="font-size:17px">${money(it.price * it.quantity)}</div>
+      <div class="price" style="font-size:17px" data-ltotal>${money(it.price * it.quantity)}</div>
       <button class="btn btn-ghost btn-sm" data-rm style="margin-top:10px;color:var(--danger);border-color:#f0d4d4">${icon('trash', 14)} Remover</button>
     </div>
   </div>`;
 }
 function wireCartLines() {
   const authed = Store.isAuthed();
+  const setQty = async (id, q) => {
+    if (authed) { await API.put('/cart/' + id, { quantity: q }); await Store.refreshCart(); }
+    else { Store.guestSetQty(id, q); }
+    refreshCartView();
+  };
   app.querySelectorAll('[data-line]').forEach(line => {
     const id = Number(line.dataset.line);
-    line.querySelectorAll('[data-cq]').forEach(b => b.addEventListener('click', async () => {
-      const cur = parseInt(line.querySelector('[data-qval]').value) || 1;
-      const q = Math.max(0, cur + parseInt(b.dataset.cq));
-      if (authed) { await API.put('/cart/' + id, { quantity: q }); await Store.refreshCart(); }
-      else { Store.guestSetQty(id, q); }
-      renderHeader(); Pages.cart();
+    const qEl = line.querySelector('[data-qval]');
+    line.querySelectorAll('[data-cq]').forEach(b => b.addEventListener('click', () => {
+      const cur = parseInt(qEl.value) || 1;
+      setQty(id, Math.max(0, cur + parseInt(b.dataset.cq)));
     }));
+    // Quantidade digitável: comprar 50 unidades não exige 49 toques no "+".
+    qEl.addEventListener('change', () => {
+      let q = parseInt(qEl.value);
+      if (!Number.isInteger(q) || q < 0) q = 1;
+      setQty(id, q);
+    });
     line.querySelector('[data-rm]').addEventListener('click', async () => {
       if (authed) { await API.del('/cart/' + id); await Store.refreshCart(); }
       else { Store.guestSetQty(id, 0); }
-      renderHeader(); Pages.cart();
+      refreshCartView();
     });
   });
 }
@@ -872,7 +914,7 @@ function wireSummary(mode) {
   if (apply) apply.addEventListener('click', async () => {
     const code = app.querySelector('#couponInput').value.trim().toUpperCase();
     Flow.coupon = code;
-    if (mode === 'carrinho') return Pages.cart();
+    if (mode === 'carrinho') return refreshCartView(); // sem remontar a página (o erro aparece no resumo)
     refreshCheckoutSummary();
     if (code) {
       try { await API.post('/coupons/validate', { code, payment: Flow.payment }); toast('Cupom aplicado!', '', 'ok'); }
@@ -880,6 +922,10 @@ function wireSummary(mode) {
     }
   });
 }
+
+/* ---------- CEP lembrado entre PDP, carrinho e checkout ---------- */
+function savedCep() { try { return (localStorage.getItem('mbv_cep') || '').replace(/\D/g, ''); } catch (_) { return ''; } }
+function saveCep(cep) { try { const d = String(cep || '').replace(/\D/g, ''); if (d.length === 8) localStorage.setItem('mbv_cep', d); } catch (_) {} }
 
 /* ---------- Máscaras e validação inline (sem lib) ---------- */
 const Mask = {
@@ -927,6 +973,7 @@ document.addEventListener('input', e => {
 Pages.checkout = async function () {
   if (!Store.isAuthed()) return go('/entrar?next=' + encodeURIComponent('/checkout'));
   loading();
+  if (!Flow.cep) Flow.cep = savedCep(); // CEP digitado na PDP/visita anterior já entra no frete
   const data = await API.get('/cart' + buildQuery({ coupon: Flow.coupon, payment: Flow.payment, cep: Flow.cep, cpf: Flow.cpf }));
   if (!data.items.length) return go('/carrinho');
   await Store.refreshUser();
@@ -940,7 +987,7 @@ Pages.checkout = async function () {
           <div class="field"><label>Nome completo</label><input id="s_name" value="${escapeHtml(Store.user.name)}" autocomplete="name"></div>
           <div class="field"><label>CPF/CNPJ <span class="muted" style="font-weight:400">(para nota fiscal e cupons exclusivos)</span></label><input id="s_cpf" placeholder="000.000.000-00" value="${escapeHtml(Flow.cpf || '')}" inputmode="numeric"></div>
           <div class="grid-2">
-            <div class="field"><label>CEP</label><input id="s_cep" placeholder="00000-000" inputmode="numeric" autocomplete="postal-code"><span id="cepHint" class="muted" style="font-size:12.5px" aria-live="polite"></span></div>
+            <div class="field"><label>CEP</label><input id="s_cep" placeholder="00000-000" inputmode="numeric" autocomplete="postal-code" value="${escapeHtml(Mask.cep(Flow.cep || ''))}"><span id="cepHint" class="muted" style="font-size:12.5px" aria-live="polite"></span></div>
             <div class="field"><label>Telefone</label><input id="s_phone" placeholder="(00) 00000-0000" inputmode="tel" autocomplete="tel-national"></div>
           </div>
           <div class="field"><label>Endereço (rua, nº, complemento)</label><input id="s_address" placeholder="Rua, número, bairro" autocomplete="street-address"></div>
@@ -972,10 +1019,34 @@ Pages.checkout = async function () {
   applyMask(app.querySelector('#s_cep'), Mask.cep);
   applyMask(app.querySelector('#s_cpf'), Mask.cpfCnpj);
   applyMask(app.querySelector('#s_phone'), Mask.phone);
+  // Reaproveita a entrega anterior: pré-preenche endereço/telefone/CPF do último pedido
+  // (só campos vazios; se o CEP atual diverge do antigo, não mistura endereços).
+  (async () => {
+    try {
+      const $ = (s) => app.querySelector(s);
+      if ($('#s_address').value) return;
+      const { orders } = await API.get('/orders');
+      const last = orders && orders[0];
+      if (!last || !last.ship_address) return;
+      const curCep = $('#s_cep').value.replace(/\D/g, '');
+      const lastCep = String(last.ship_cep || '').replace(/\D/g, '');
+      if (curCep && lastCep && curCep !== lastCep) return;
+      if (!$('#s_cep').value && lastCep) { $('#s_cep').value = Mask.cep(lastCep); Flow.cep = lastCep; saveCep(lastCep); }
+      $('#s_address').value = last.ship_address || '';
+      if (!$('#s_city').value) $('#s_city').value = last.ship_city || '';
+      if (!$('#s_state').value) $('#s_state').value = last.ship_state || '';
+      if (!$('#s_phone').value) $('#s_phone').value = Mask.phone(last.ship_phone || '');
+      if (!$('#s_cpf').value && last.cpf_cnpj) { $('#s_cpf').value = Mask.cpfCnpj(last.cpf_cnpj); Flow.cpf = last.cpf_cnpj; }
+      const hint = $('#cepHint');
+      if (hint) hint.textContent = 'Usamos os dados da sua última entrega — confira antes de confirmar.';
+      refreshCheckoutSummary();
+    } catch (_) {}
+  })();
   const cepEl = app.querySelector('#s_cep');
   if (cepEl) cepEl.addEventListener('blur', async () => {
     const cep = cepEl.value.replace(/\D/g, '');
     Flow.cep = cep;
+    saveCep(cep);
     const hint = app.querySelector('#cepHint');
     if (cep.length === 8) {
       if (hint) hint.textContent = 'Buscando endereço pelo CEP…';
@@ -1105,6 +1176,24 @@ async function placeOrder() {
 }
 
 /* ---------- ORDER DETAIL / CONFIRMATION ---------- */
+// Linha do tempo do pedido: Pedido → Pago → Enviado → Entregue (cancelado tem aviso próprio).
+function orderTimeline(o) {
+  if (o.status === 'cancelled') {
+    return `<div class="tl-cancel">${icon('shield', 16)} Este pedido foi cancelado${o.payment_method === 'mbv' && o.payment_status === 'paid' ? ' — o valor em NTR foi estornado à sua carteira' : ''}.</div>`;
+  }
+  const steps = [
+    { label: 'Pedido realizado', done: true },
+    { label: 'Pagamento confirmado', done: o.payment_status === 'paid' },
+    { label: 'Enviado', done: o.status === 'shipped' || o.status === 'delivered' },
+    { label: 'Entregue', done: o.status === 'delivered' }
+  ];
+  let html = '<div class="timeline">';
+  steps.forEach((s, i) => {
+    if (i) html += `<div class="tl-line${s.done ? ' done' : ''}"></div>`;
+    html += `<div class="tl-step${s.done ? ' done' : ''}"><div class="dot">${s.done ? icon('check', 13) : i + 1}</div><span>${s.label}</span></div>`;
+  });
+  return html + '</div>';
+}
 Pages.orderDetail = async function (id) {
   if (!Store.isAuthed()) return go('/entrar');
   loading();
@@ -1115,7 +1204,10 @@ Pages.orderDetail = async function (id) {
       <div style="width:70px;height:70px;border-radius:50%;background:${paid ? 'var(--green-100)' : '#fdf1dc'};color:${paid ? 'var(--green-700)' : 'var(--warn)'};display:grid;place-items:center;margin:0 auto 14px">${icon(paid ? 'check' : (o.payment_method === 'mbv' ? 'coin' : 'card'), 32)}</div>
       <h1>${paid ? 'Pedido confirmado!' : 'Pedido criado — finalize o pagamento'}</h1>
       <p class="muted">Pedido <b>${escapeHtml(o.code)}</b> · ${new Date(o.created_at + 'Z').toLocaleString('pt-BR')}</p>
+      ${o.ship_prazo && o.status !== 'delivered' && o.status !== 'cancelled' ? `<p style="margin-top:6px">${icon('truck', 14)} Chega em até <b>${escapeHtml(o.ship_prazo)} dias úteis</b> após a confirmação do pagamento</p>` : ''}
     </div>
+
+    ${orderTimeline(o)}
 
     ${paymentPanel(o, paid)}
 
@@ -1138,13 +1230,17 @@ Pages.orderDetail = async function (id) {
     <div class="panel">
       <h3>${icon('truck', 18)} Entrega</h3>
       <p style="margin:0;line-height:1.7">${escapeHtml(o.ship_name)}<br>${escapeHtml(o.ship_address)}<br>${escapeHtml(o.ship_city)} — ${escapeHtml(o.ship_state)} · CEP ${escapeHtml(o.ship_cep)}${o.ship_phone ? '<br>Tel: ' + escapeHtml(o.ship_phone) : ''}</p>
+      ${o.ship_prazo ? `<p class="muted" style="margin:10px 0 0;font-size:13.5px">Prazo estimado: ${escapeHtml(o.ship_prazo)} dias úteis (região do CEP)</p>` : ''}
     </div>
 
-    <div style="display:flex;gap:12px;justify-content:center;margin-top:8px">
+    <div style="display:flex;gap:12px;justify-content:center;margin-top:8px;flex-wrap:wrap">
       <a href="/pedidos" class="btn btn-ghost">Meus pedidos</a>
+      <button class="btn btn-light" id="odBuyAgain">${icon('cart', 15)} Comprar novamente</button>
       <a href="/produtos" class="btn btn-primary">Continuar comprando</a>
     </div>
   </div>`);
+  const ba = app.querySelector('#odBuyAgain');
+  if (ba) ba.addEventListener('click', () => { ba.disabled = true; ba.textContent = 'Adicionando…'; buyAgain(o); });
 
   const cf = app.querySelector('#confirmPix');
   if (cf) cf.addEventListener('click', async () => {
@@ -1255,12 +1351,19 @@ Pages.orders = async function () {
   mount(`<div class="container">
     <h1 style="margin:24px 0 18px;font-size:27px">Meus pedidos</h1>
     ${!orders.length ? `<div class="empty"><div class="ic">${icon('box', 30)}</div><h3>Você ainda não fez pedidos</h3><a href="/produtos" class="btn btn-primary" style="margin-top:14px">Explorar produtos</a></div>`
-      : orders.map(o => `<a href="/pedido/${o.id}" class="panel" style="display:flex;align-items:center;gap:16px;text-decoration:none">
-          <div style="display:flex;margin-right:4px">${o.items.slice(0, 3).map(it => `<img src="${productImage(it)}" onerror="${UI.imgFallback(it)}" style="width:48px;height:48px;border-radius:10px;object-fit:cover;border:2px solid #fff;margin-left:-10px">`).join('')}</div>
-          <div style="flex:1"><b style="font-family:var(--display)">${escapeHtml(o.code)}</b><div class="muted" style="font-size:13px">${new Date(o.created_at + 'Z').toLocaleDateString('pt-BR')} · ${o.items.length} item(ns)</div></div>
+      : orders.map(o => `<div class="panel" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <a href="/pedido/${o.id}" style="display:flex;align-items:center;gap:16px;flex:1;min-width:240px;text-decoration:none">
+            <div style="display:flex;margin-right:4px">${o.items.slice(0, 3).map(it => `<img src="${productImage(it)}" onerror="${UI.imgFallback(it)}" style="width:48px;height:48px;border-radius:10px;object-fit:cover;border:2px solid #fff;margin-left:-10px">`).join('')}</div>
+            <div style="flex:1"><b style="font-family:var(--display)">${escapeHtml(o.code)}</b><div class="muted" style="font-size:13px">${new Date(o.created_at + 'Z').toLocaleDateString('pt-BR')} · ${o.items.length} item(ns)</div></div>
+          </a>
           <div style="text-align:right"><b>${money(o.total)}</b><div style="margin-top:6px">${statusPill(o.status)}</div></div>
-        </a>`).join('')}
+          <button class="btn btn-light btn-sm" data-buyagain="${o.id}" title="Adicionar os mesmos itens ao carrinho">${icon('cart', 14)} Comprar novamente</button>
+        </div>`).join('')}
   </div>`);
+  app.querySelectorAll('[data-buyagain]').forEach(b => b.addEventListener('click', () => {
+    const o = orders.find(x => x.id === Number(b.dataset.buyagain));
+    if (o) { b.disabled = true; b.textContent = 'Adicionando…'; buyAgain(o); }
+  }));
 };
 
 /* ---------- ACCOUNT ---------- */

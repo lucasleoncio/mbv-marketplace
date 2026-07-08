@@ -6,7 +6,7 @@ const wallet = require('../lib/wallet');
 const chain = require('../lib/chain');
 const email = require('../lib/email');
 const mp = require('../lib/mercadopago');
-const { TOKEN, CHAIN, MP, DEMO_MODE } = require('../config');
+const { TOKEN, CHAIN, MP, DEMO_MODE, SHIPPING } = require('../config');
 
 const router = express.Router();
 
@@ -86,18 +86,23 @@ router.post('/', requireAuth, async (req, res) => {
 
   const paymentStatus = (method === 'pix' || onchain || mpPay) ? 'pending' : 'paid';
 
+  // Prazo estimado por região do CEP — persistido no pedido para exibir na confirmação/acompanhamento.
+  const cepDigits = String(ship.cep || '').replace(/\D/g, '');
+  const shipPrazo = (SHIPPING.prazoByRegion && SHIPPING.prazoByRegion[cepDigits[0]]) || SHIPPING.prazoDefault || '5 a 10';
+
   const run = db.transaction(() => {
     const info = db.prepare(`
       INSERT INTO orders (user_id, code, subtotal, discount, shipping, total, coupon_code, payment_method,
-        payment_status, status, mbv_amount, cashback_mbv, ship_name, ship_cep, ship_address, ship_city, ship_state, ship_phone)
+        payment_status, status, mbv_amount, cashback_mbv, ship_name, ship_cep, ship_address, ship_city, ship_state, ship_phone, ship_prazo)
       VALUES (@user_id,@code,@subtotal,@discount,@shipping,@total,@coupon_code,@payment_method,
-        @payment_status,'processing',@mbv_amount,@cashback_mbv,@n,@cep,@addr,@city,@state,@phone)
+        @payment_status,'processing',@mbv_amount,@cashback_mbv,@n,@cep,@addr,@city,@state,@phone,@prazo)
     `).run({
       user_id: req.user.id, code: 'TMP', subtotal: totals.subtotal, discount: totals.discount,
       shipping: totals.shipping, total: totals.total, coupon_code: totals.coupon ? totals.coupon.code : null,
       payment_method: method, payment_status: paymentStatus,
       mbv_amount: method === 'mbv' ? totals.mbvAmount : 0, cashback_mbv: onchain ? 0 : totals.cashbackMbv,
-      n: ship.name, cep: ship.cep, addr: ship.address, city: ship.city, state: ship.state, phone: ship.phone || ''
+      n: ship.name, cep: ship.cep, addr: ship.address, city: ship.city, state: ship.state, phone: ship.phone || '',
+      prazo: shipPrazo
     });
     const orderId = info.lastInsertRowid;
     const code = 'MBV-' + String(100000 + orderId);

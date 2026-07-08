@@ -212,6 +212,7 @@ for (const stmt of [
   'ALTER TABLE products ADD COLUMN search_text TEXT',
   'ALTER TABLE products ADD COLUMN specs TEXT',
   'ALTER TABLE products ADD COLUMN mapa_reg TEXT',
+  'ALTER TABLE orders ADD COLUMN ship_prazo TEXT',
   'ALTER TABLE cart_items ADD COLUMN created_at TEXT',
   'ALTER TABLE cart_items ADD COLUMN notified INTEGER NOT NULL DEFAULT 0'
 ]) { try { db.exec(stmt); } catch (_) {} }
