@@ -35,6 +35,31 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .navrow a[aria-current="page"]{color:var(--green-700);font-weight:700}
 /* Faixa de ambiente de demonstração (some no go-live: MBV_DEMO_MODE=false) */
 .demo-strip{background:#fff6df;color:#7a5a10;font-size:12.5px;text-align:center;padding:5px 12px;border-bottom:1px solid #f0e3bd}
+/* Galeria da PDP */
+.pdp-thumbs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.pdp-thumb{width:64px;height:64px;border-radius:10px;border:2px solid var(--line);padding:0;overflow:hidden;background:#fff;cursor:pointer;transition:border-color .15s}
+.pdp-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.pdp-thumb.on{border-color:var(--green-600)}
+.pdp-thumb:hover{border-color:var(--green-500)}
+/* Ficha técnica */
+.spec-sheet{margin-top:20px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px 18px}
+.spec-sheet h3{display:flex;align-items:center;gap:8px;font-size:16px;margin:0 0 12px}
+.spec-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.spec-table td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.spec-table tr:last-child td{border-bottom:0}
+.spec-table td:first-child{color:var(--muted);width:40%;font-weight:600}
+.mapa-box{display:flex;gap:10px;align-items:flex-start;background:var(--green-50);border:1px solid var(--green-100);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13.5px;color:var(--green-800)}
+.mapa-box a{color:var(--green-700);font-weight:600}
+/* Barra de compra fixa (mobile) */
+.buybar{display:none}
+@media (max-width:900px){
+  .buybar{position:fixed;left:0;right:0;bottom:0;z-index:90;display:flex;align-items:center;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--line);box-shadow:0 -8px 24px -12px rgba(16,35,26,.25)}
+  .buybar[hidden]{display:none}
+  .bb-info{flex:1;min-width:0;display:flex;flex-direction:column}
+  .bb-info b{font-size:16px}
+  .bb-info small{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .buybar .btn{white-space:nowrap;flex-shrink:0}
+}
 .container{max-width:var(--max);margin:0 auto;padding:0 22px}
 .loader{padding:80px 0;text-align:center;color:var(--muted)}
 .muted{color:var(--muted)} .center{text-align:center}

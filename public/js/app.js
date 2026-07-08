@@ -554,10 +554,15 @@ Pages.product = async function (id) {
   const off = p.compare_at_price && p.compare_at_price > p.price ? Math.round((1 - p.price / p.compare_at_price) * 100) : 0;
   const fav = Store.favorites.has(p.id);
   trackRecent(p.id);
+  // Galeria: imagem principal + fotos extras do campo `gallery` (sem duplicar a principal).
+  const gallery = [productImage(p), ...((Array.isArray(p.gallery) ? p.gallery : []).filter(u => u && u !== p.image))];
   mount(`<div class="container">
     <div class="breadcrumb"><a href="/">Início</a> ${icon('arrow', 13)} <a href="/produtos${buildQuery({ cat: p.category_slug })}">${escapeHtml(p.category_name)}</a> ${icon('arrow', 13)} <span>${escapeHtml(p.name)}</span></div>
     <div class="pdp">
-      <div class="pdp-media"><div class="main"><img src="${productImage(p)}" onerror="${UI.imgFallback(p)}" alt="${escapeHtml(p.name)}"></div></div>
+      <div class="pdp-media">
+        <div class="main"><img id="pdpMain" src="${gallery[0]}" onerror="${UI.imgFallback(p)}" alt="${escapeHtml(p.name)}" style="cursor:zoom-in"></div>
+        ${gallery.length > 1 ? `<div class="pdp-thumbs">${gallery.map((g, i) => `<button class="pdp-thumb${i === 0 ? ' on' : ''}" data-gi="${i}" aria-label="Ver imagem ${i + 1} de ${gallery.length}" aria-pressed="${i === 0}"><img src="${g}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
+      </div>
       <div>
         <span class="cat" style="color:var(--green-700);font-weight:600">${escapeHtml(p.category_name)}</span>
         <h1>${escapeHtml(p.name)}</h1>
@@ -605,7 +610,13 @@ Pages.product = async function (id) {
           <div id="shipResult" class="muted" style="font-size:13px;margin-top:8px"></div>
         </div>
         ${p.co2 ? `<div class="eco-note"><div class="ic">${icon('leaf', 20)}</div><div><b>Impacto positivo (estimado)</b><br><span class="muted" style="font-size:13.5px">Estimativa de redução de ~${p.co2} kg de CO₂e por unidade vs. manejo convencional. <a href="/metodologia-co2" style="color:var(--green-700);font-weight:600">Ver metodologia</a></span></div></div>` : ''}
-        <div class="desc">${escapeHtml(p.description || '')}</div>
+        <div class="desc">${escapeHtml(p.description || '').split(/\n+/).filter(Boolean).map(s => `<p>${s}</p>`).join('')}</div>
+        ${(p.specs && p.specs.length) || p.mapa_reg ? `
+        <div class="spec-sheet">
+          <h3>${icon('grid', 16)} Ficha técnica</h3>
+          ${p.mapa_reg ? `<div class="mapa-box">${icon('shield', 18)}<div><b>Registro MAPA nº ${escapeHtml(p.mapa_reg)}</b><br><a href="https://agrofit.agricultura.gov.br/agrofit_cons/principal_agrofit_cons" target="_blank" rel="noopener">Conferir no sistema público do MAPA ↗</a></div></div>` : ''}
+          ${p.specs && p.specs.length ? `<table class="spec-table"><tbody>${p.specs.map(s => `<tr><td>${escapeHtml(s.k)}</td><td>${escapeHtml(s.v)}</td></tr>`).join('')}</tbody></table>` : ''}
+        </div>` : ''}
       </div>
     </div>
 
@@ -628,6 +639,11 @@ Pages.product = async function (id) {
     </section>
 
     ${related.length ? `<section class="section"><div class="section-head"><h2>Você também pode gostar</h2></div><div class="product-grid">${related.map(productCard).join('')}</div></section>` : ''}
+
+    <div class="buybar" id="buybar" hidden>
+      <div class="bb-info"><b>${money(p.price)}</b><small>${escapeHtml(p.name)}</small></div>
+      <button class="btn btn-primary" id="bbAdd" ${p.stock <= 0 ? 'disabled' : ''}>${icon('cart', 16)} Adicionar</button>
+    </div>
   </div>`);
 
   const qtyEl = app.querySelector('#qty');
@@ -636,6 +652,42 @@ Pages.product = async function (id) {
   }));
   app.querySelector('#addBtn').addEventListener('click', () => addToCart(p.id, parseInt(qtyEl.value) || 1));
   app.querySelector('#buyBtn').addEventListener('click', async () => { await addToCart(p.id, parseInt(qtyEl.value) || 1); go('/checkout'); });
+
+  // Galeria: thumbs, setas do teclado, swipe no mobile e zoom em modal.
+  const mainImg = app.querySelector('#pdpMain');
+  let gCur = 0;
+  const setImg = (i) => {
+    gCur = (i + gallery.length) % gallery.length;
+    mainImg.src = gallery[gCur];
+    app.querySelectorAll('.pdp-thumb').forEach((b, j) => { b.classList.toggle('on', j === gCur); b.setAttribute('aria-pressed', String(j === gCur)); });
+  };
+  app.querySelectorAll('.pdp-thumb').forEach(b => b.addEventListener('click', () => setImg(Number(b.dataset.gi))));
+  if (gallery.length > 1) {
+    app.querySelector('.pdp-media').addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight') { e.preventDefault(); setImg(gCur + 1); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); setImg(gCur - 1); }
+    });
+    let tx = null;
+    mainImg.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+    mainImg.addEventListener('touchend', e => {
+      if (tx == null) return;
+      const dx = e.changedTouches[0].clientX - tx;
+      if (Math.abs(dx) > 40) setImg(gCur + (dx < 0 ? 1 : -1));
+      tx = null;
+    }, { passive: true });
+  }
+  mainImg.addEventListener('click', () => {
+    UI.openModal(p.name, `<img src="${gallery[gCur]}" alt="${escapeHtml(p.name)}" style="width:100%;border-radius:12px">`, { maxWidth: 720 });
+  });
+
+  // Barra de compra fixa no mobile: aparece quando a buy-row original sai da tela.
+  const buybar = app.querySelector('#buybar');
+  const buyRow = app.querySelector('.buy-row');
+  if (buybar && buyRow && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver(([en]) => { buybar.hidden = en.isIntersecting; });
+    io.observe(buyRow);
+    app.querySelector('#bbAdd').addEventListener('click', () => addToCart(p.id, parseInt(qtyEl.value) || 1));
+  }
   const refreshCmp = () => {
     const ids = compareIds(); const cb = app.querySelector('#cmpBtn'), lk = app.querySelector('#cmpLink');
     if (cb) cb.innerHTML = `${icon('grid', 14)} ${ids.includes(p.id) ? 'No comparador ✓' : 'Comparar'}`;
@@ -1557,7 +1609,7 @@ Admin.products = async function () {
 
 Admin.productForm = async function (id) {
   loading();
-  let p = { name: '', description: '', price: '', compare_at_price: '', category_id: Store.categories[0] && Store.categories[0].id, stock: 0, unit: 'un', pack_size: '', image: '', badges: [], co2: 0, featured: false };
+  let p = { name: '', description: '', price: '', compare_at_price: '', category_id: Store.categories[0] && Store.categories[0].id, stock: 0, unit: 'un', pack_size: '', image: '', gallery: [], badges: [], specs: [], mapa_reg: '', co2: 0, featured: false };
   if (id) { const r = await API.get('/products/' + id); p = r.product; }
   mount(adminShell('produtos', `
     <div class="breadcrumb"><a href="/admin/produtos">Produtos</a> ${icon('arrow', 13)} <span>${id ? 'Editar' : 'Novo produto'}</span></div>
@@ -1581,6 +1633,8 @@ Admin.productForm = async function (id) {
             <div class="field"><label>CO₂ evitado (kg/un)</label><input id="p_co2" type="number" step="0.1" value="${p.co2 || 0}"></div>
           </div>
           <div class="field"><label>Selos eco (separados por vírgula)</label><input id="p_badges" placeholder="Orgânico, Biodegradável" value="${escapeHtml((p.badges || []).join(', '))}"></div>
+          <div class="field"><label>Registro MAPA (se houver)</label><input id="p_mapa" placeholder="ex: RS-003872-5.000067" value="${escapeHtml(p.mapa_reg || '')}"></div>
+          <div class="field"><label>Ficha técnica <span class="muted" style="font-weight:400">(1 item por linha, no formato Rótulo: Valor)</span></label><textarea id="p_specs" rows="5" placeholder="Dose recomendada: 5 a 6 L/ha&#10;Classe: A — via foliar">${escapeHtml((p.specs || []).map(s => `${s.k}: ${s.v}`).join('\n'))}</textarea></div>
           <label style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px"><input type="checkbox" id="p_featured" ${p.featured ? 'checked' : ''}> Destacar na home</label>
         </div>
         <div>
@@ -1589,6 +1643,10 @@ Admin.productForm = async function (id) {
           <input type="file" id="p_file" accept="image/*" style="font-size:12px;width:100%">
           <div class="field" style="margin-top:10px"><label>ou URL</label><input id="p_image" value="${escapeHtml(p.image || '')}" placeholder="https://..."></div>
           <p class="muted" style="font-size:11.5px;margin:6px 0 0">Envie uma foto real (JPG/PNG, fundo claro). Sem foto, geramos uma arte da embalagem MBV.</p>
+          <label style="font-size:13px;font-weight:600;display:block;margin-top:16px">Galeria (fotos extras)</label>
+          <input type="file" id="p_gfiles" accept="image/*" multiple style="font-size:12px;width:100%;margin-top:6px">
+          <div class="field" style="margin-top:8px"><label>URLs da galeria (1 por linha)</label><textarea id="p_gallery" rows="3" placeholder="https://...">${escapeHtml((p.gallery || []).join('\n'))}</textarea></div>
+          <p class="muted" style="font-size:11.5px;margin:6px 0 0">As fotos extras aparecem como miniaturas na página do produto.</p>
         </div>
       </div>
       <div style="display:flex;gap:10px;margin-top:14px"><button class="btn btn-primary btn-lg" id="saveProd">${icon('check', 17)} Salvar</button><a href="/admin/produtos" class="btn btn-ghost btn-lg">Cancelar</a></div>
@@ -1603,6 +1661,20 @@ Admin.productForm = async function (id) {
   });
   app.querySelector('#p_image').addEventListener('change', e => { if (e.target.value) app.querySelector('#imgPreview').innerHTML = `<img src="${e.target.value}" style="width:100%;height:100%;object-fit:cover">`; });
 
+  // Multi-upload da galeria: envia cada arquivo e adiciona a URL à lista.
+  const gfiles = app.querySelector('#p_gfiles');
+  gfiles.addEventListener('change', async () => {
+    const ta = app.querySelector('#p_gallery');
+    let ok = 0;
+    for (const f of gfiles.files) {
+      const fd = new FormData(); fd.append('image', f);
+      try { const r = await API.upload('/products/upload', fd); ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + r.url; ok++; }
+      catch (e) { toast('Falha no upload de ' + f.name, e.message, 'err'); }
+    }
+    if (ok) toast(`${ok} imagem(ns) adicionada(s) à galeria`, '', 'ok');
+    gfiles.value = '';
+  });
+
   app.querySelector('#saveProd').addEventListener('click', async () => {
     const body = {
       name: app.querySelector('#p_name').value.trim(), description: app.querySelector('#p_desc').value.trim(),
@@ -1610,7 +1682,13 @@ Admin.productForm = async function (id) {
       price: Number(app.querySelector('#p_price').value), compare_at_price: Number(app.querySelector('#p_compare').value) || null,
       stock: parseInt(app.querySelector('#p_stock').value) || 0, pack_size: app.querySelector('#p_pack').value.trim(),
       co2: Number(app.querySelector('#p_co2').value) || 0, image: app.querySelector('#p_image').value.trim(),
-      badges: app.querySelector('#p_badges').value.split(',').map(s => s.trim()).filter(Boolean), featured: app.querySelector('#p_featured').checked
+      badges: app.querySelector('#p_badges').value.split(',').map(s => s.trim()).filter(Boolean), featured: app.querySelector('#p_featured').checked,
+      gallery: app.querySelector('#p_gallery').value.split('\n').map(s => s.trim()).filter(Boolean),
+      mapa_reg: app.querySelector('#p_mapa').value.trim(),
+      specs: app.querySelector('#p_specs').value.split('\n').map(l => {
+        const i = l.indexOf(':');
+        return i > 0 ? { k: l.slice(0, i).trim(), v: l.slice(i + 1).trim() } : null;
+      }).filter(s => s && s.k && s.v)
     };
     if (!body.name || !body.price) return toast('Campos obrigatórios', 'Informe nome e preço.', 'err');
     try {

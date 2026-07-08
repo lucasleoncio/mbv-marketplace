@@ -54,6 +54,7 @@ function serialize(p) {
     ...p,
     gallery: parseJSON(p.gallery, []),
     badges: parseJSON(p.badges, []),
+    specs: parseJSON(p.specs, []), // ficha técnica: [{k,v},...]
     featured: !!p.featured,
     active: !!p.active
   };
@@ -196,8 +197,13 @@ function readProductBody(b) {
     unit: String(b.unit || 'un'),
     pack_size: String(b.pack_size || '').trim() || null,
     image: String(b.image || '').trim() || null,
-    gallery: JSON.stringify(Array.isArray(b.gallery) ? b.gallery : []),
+    gallery: JSON.stringify(Array.isArray(b.gallery) ? b.gallery.map(u => String(u).trim()).filter(Boolean).slice(0, 8) : []),
     badges: JSON.stringify(Array.isArray(b.badges) ? b.badges : (b.badges ? String(b.badges).split(',').map(s => s.trim()).filter(Boolean) : [])),
+    // Ficha técnica: aceita [{k,v}] e valida/normaliza (máx. 20 linhas)
+    specs: JSON.stringify(Array.isArray(b.specs)
+      ? b.specs.map(s => ({ k: String((s && s.k) || '').trim().slice(0, 60), v: String((s && s.v) || '').trim().slice(0, 200) })).filter(s => s.k && s.v).slice(0, 20)
+      : []),
+    mapa_reg: String(b.mapa_reg || '').trim().slice(0, 60) || null,
     featured: b.featured ? 1 : 0,
     co2: Number(b.co2) || 0,
     active: b.active === undefined ? 1 : (b.active ? 1 : 0)
@@ -209,8 +215,8 @@ router.post('/', requireAdmin, (req, res) => {
   if (!d.name) return res.status(400).json({ error: 'Informe o nome do produto.' });
   if (d.price <= 0) return res.status(400).json({ error: 'Informe um preço válido.' });
   const info = db.prepare(`
-    INSERT INTO products (name, slug, description, price, compare_at_price, category_id, stock, unit, pack_size, image, gallery, badges, featured, co2, active)
-    VALUES (@name,@slug,@description,@price,@compare_at_price,@category_id,@stock,@unit,@pack_size,@image,@gallery,@badges,@featured,@co2,@active)
+    INSERT INTO products (name, slug, description, price, compare_at_price, category_id, stock, unit, pack_size, image, gallery, badges, specs, mapa_reg, featured, co2, active)
+    VALUES (@name,@slug,@description,@price,@compare_at_price,@category_id,@stock,@unit,@pack_size,@image,@gallery,@badges,@specs,@mapa_reg,@featured,@co2,@active)
   `).run({ ...d, slug: slugify(d.name) });
   const p = db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid);
   res.status(201).json({ product: serialize(p) });
@@ -219,11 +225,16 @@ router.post('/', requireAdmin, (req, res) => {
 router.put('/:id', requireAdmin, (req, res) => {
   const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Produto não encontrado.' });
-  const d = readProductBody({ ...existing, ...req.body, badges: req.body.badges ?? parseJSON(existing.badges, []), gallery: req.body.gallery ?? parseJSON(existing.gallery, []) });
+  const d = readProductBody({
+    ...existing, ...req.body,
+    badges: req.body.badges ?? parseJSON(existing.badges, []),
+    gallery: req.body.gallery ?? parseJSON(existing.gallery, []),
+    specs: req.body.specs ?? parseJSON(existing.specs, [])
+  });
   db.prepare(`
     UPDATE products SET name=@name, slug=@slug, description=@description, price=@price, compare_at_price=@compare_at_price,
       category_id=@category_id, stock=@stock, unit=@unit, pack_size=@pack_size, image=@image, gallery=@gallery,
-      badges=@badges, featured=@featured, co2=@co2, active=@active WHERE id=@id
+      badges=@badges, specs=@specs, mapa_reg=@mapa_reg, featured=@featured, co2=@co2, active=@active WHERE id=@id
   `).run({ ...d, slug: slugify(d.name), id: existing.id });
   const p = db.prepare('SELECT * FROM products WHERE id = ?').get(existing.id);
   res.json({ product: serialize(p) });

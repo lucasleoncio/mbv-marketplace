@@ -55,7 +55,8 @@ const PRODUCTS = [
   { name: 'Coin Max — Fertilizante Foliar Organomineral', cat: 'fertilizantes', price: 159.9, compare: 0, stock: 120, unit: 'L', pack: 'Frasco 1 litro', co2: 5, featured: 1,
     img: 'https://agroeda.com.br/images/produto.png',
     badges: ['Organomineral', 'Via Foliar', 'Registro MAPA'],
-    desc: 'Fertilizante foliar organomineral de alta performance da Agroeda, parceira do MBV. Seu diferencial é o bioestimulante genético — uma fórmula ultraconcentrada de extratos vegetais orgânicos que estimula a fotossíntese e a absorção de nutrientes. Segundo avaliações do fabricante, os ganhos de produtividade em culturas foliares partem de 7% (resultados variam conforme cultura, solo, clima e manejo). Composto por extratos de algas e aminoácidos, favorece plantas mais vigorosas e tolerantes a estresses. Indicado para soja, milho, feijão, tomate, manga, morango, uva e outras. Garantias: N 4%, P₂O₅ 1%, B 1,5%, Mn 0,25%, Mo 0,5%, Zn 1,5% e COT 6%. Suspensão fluida homogênea (densidade 1,20 g/mL), Classe A, via foliar. Dose: 5 a 6 L/ha, aplicação única entre os estádios V4 e V6. Registro no MAPA RS-003872-5.000067. Também disponível em balde de 18 kg.' }
+    mapa: 'RS-003872-5.000067',
+    desc: 'Fertilizante foliar organomineral de alta performance da Agroeda, parceira do MBV. Seu diferencial é o bioestimulante genético — uma fórmula ultraconcentrada de extratos vegetais orgânicos que estimula a fotossíntese e a absorção de nutrientes.\nSegundo avaliações do fabricante, os ganhos de produtividade em culturas foliares partem de 7% (resultados variam conforme cultura, solo, clima e manejo). Composto por extratos de algas e aminoácidos, favorece plantas mais vigorosas e tolerantes a estresses.\nIndicado para soja, milho, feijão, tomate, manga, morango, uva e outras culturas. Dose: 5 a 6 L/ha, aplicação única entre os estádios V4 e V6. Também disponível em balde de 18 kg. As garantias completas estão na ficha técnica abaixo.' }
 ];
 
 // Dose recomendada por hectare (na unidade do produto) e quantidade por embalagem — para a calculadora.
@@ -71,6 +72,59 @@ const DOSE = {
   'Adjuvante Agrícola Biodegradável': { dose: 0.5, packQty: 5 },
   'Coin Max — Fertilizante Foliar Organomineral': { dose: 5.5, packQty: 1 }
 };
+
+// Ficha técnica estruturada por produto (exibida na PDP e no JSON-LD como additionalProperty).
+const SPECS = {
+  'Coin Max — Fertilizante Foliar Organomineral': [
+    { k: 'Garantias', v: 'N 4% · P₂O₅ 1% · B 1,5% · Mn 0,25% · Mo 0,5% · Zn 1,5% · COT 6%' },
+    { k: 'Natureza física', v: 'Suspensão fluida homogênea (densidade 1,20 g/mL)' },
+    { k: 'Classe', v: 'A — via foliar' },
+    { k: 'Dose recomendada', v: '5 a 6 L/ha, aplicação única entre V4 e V6' },
+    { k: 'Culturas indicadas', v: 'Soja, milho, feijão, tomate, manga, morango, uva e outras' },
+    { k: 'Embalagens', v: 'Frasco 1 L · Balde 18 kg' },
+    { k: 'Fabricante', v: 'Agroeda (parceira MBV)' }
+  ],
+  'Eutroterra — Condicionador de Solo Orgânico': [
+    { k: 'Tipo', v: 'Condicionador de solo orgânico líquido (base COT)' },
+    { k: 'Dose recomendada', v: '8 L/ha (ajustar pela análise de solo)' },
+    { k: 'Aplicação', v: 'Solo ou fertirrigação' },
+    { k: 'Embalagem', v: 'Bombona 16 L' },
+    { k: 'Indicação', v: 'Grandes culturas e recuperação de áreas degradadas' }
+  ],
+  'Neutrotan — Neutralizador de Acidez Biológico': [
+    { k: 'Tipo', v: 'Neutralizador biológico de acidez do solo' },
+    { k: 'Aplicação', v: 'Solo, conforme análise de pH' },
+    { k: 'Embalagem', v: 'Bombona 20 L' },
+    { k: 'Compatibilidade', v: 'Manejo orgânico e regenerativo — sem resíduos químicos' }
+  ],
+  'Biofertilizante Líquido Premium': [
+    { k: 'Tipo', v: 'Biofertilizante líquido concentrado com ácidos húmicos' },
+    { k: 'Dose recomendada', v: '3 L/ha' },
+    { k: 'Aplicação', v: 'Pulverização foliar ou fertirrigação' },
+    { k: 'Embalagem', v: 'Galão 5 L' }
+  ],
+  'Painel Solar Agrícola 550W': [
+    { k: 'Potência', v: '550 W por painel' },
+    { k: 'Uso', v: 'Eletrificação rural e bombeamento de água' },
+    { k: 'Garantia', v: 'Consulte o certificado do fabricante' }
+  ],
+  'Sensor de Umidade do Solo (IoT)': [
+    { k: 'Medição', v: 'Umidade do solo em tempo real' },
+    { k: 'Conectividade', v: 'Aplicativo (iOS/Android) com alertas' },
+    { k: 'Conteúdo', v: '1 sensor + acesso ao app' }
+  ]
+};
+
+// Galeria de demonstração: "verso da embalagem" gerado em SVG (mesma linguagem
+// visual do mockup do front) com modo de uso — troque por fotos reais no admin.
+const CAT_COLORS = { fertilizantes: ['#1f9a52', '#0c5e33'], defensivos: ['#2b8f8a', '#0e5f5b'], bioestimulantes: ['#7fae22', '#3f6b12'], sementes: ['#c0892e', '#7a4e15'], 'solo-agua': ['#2f86c4', '#16527e'], sustentabilidade: ['#d39a1f', '#9a6a10'] };
+function svgEsc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+function packBackImage(catSlug, lines) {
+  const [c1, c2] = CAT_COLORS[catSlug] || CAT_COLORS.fertilizantes;
+  const rows = lines.slice(0, 3).map((t, i) => `<text x="200" y="${140 + i * 20}" text-anchor="middle" fill="#3c4a41" font-family="Arial" font-size="10.5">${svgEsc(t)}</text>`).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><defs><linearGradient id="pk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><rect width="400" height="300" fill="#eef2ea"/><ellipse cx="200" cy="262" rx="98" ry="14" fill="#0c5e33" opacity="0.12"/><rect x="150" y="44" width="100" height="20" rx="8" fill="${c2}"/><rect x="128" y="56" width="144" height="200" rx="20" fill="url(#pk)"/><rect x="140" y="84" width="120" height="146" rx="10" fill="#ffffff" opacity="0.95"/><text x="200" y="106" text-anchor="middle" fill="${c2}" font-family="Arial" font-size="12" font-weight="800">MODO DE USO</text><line x1="152" y1="115" x2="248" y2="115" stroke="${c1}" stroke-width="1.5"/>${rows}<text x="200" y="214" text-anchor="middle" fill="${c2}" font-family="Arial" font-size="8.5" font-weight="700">MBV · REGENERAR PARA PRODUZIR</text></svg>`;
+  return 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
 
 // Avaliações de demonstração COERENTES: as estrelas exibidas derivam SEMPRE de
 // avaliações reais gravadas na tabela reviews — nunca de nota aleatória.
@@ -126,18 +180,24 @@ function seed() {
   for (const c of CATEGORIES) catId[c.slug] = insCat.run(c.name, c.slug, c.icon, c.description).lastInsertRowid;
 
   const insProd = db.prepare(`
-    INSERT INTO products (name, slug, description, price, compare_at_price, category_id, stock, unit, pack_size, badges, featured, co2, image, dose_per_ha, pack_qty, rating, rating_count, active)
-    VALUES (@name,@slug,@desc,@price,@compare,@cat,@stock,@unit,@pack,@badges,@featured,@co2,@image,@dose,@packQty,@rating,@rc,1)
+    INSERT INTO products (name, slug, description, price, compare_at_price, category_id, stock, unit, pack_size, badges, featured, co2, image, gallery, specs, mapa_reg, dose_per_ha, pack_qty, rating, rating_count, active)
+    VALUES (@name,@slug,@desc,@price,@compare,@cat,@stock,@unit,@pack,@badges,@featured,@co2,@image,@gallery,@specs,@mapa,@dose,@packQty,@rating,@rc,1)
   `);
   const prodId = {};
   for (const p of PRODUCTS) {
+    const dose = (DOSE[p.name] || {}).dose || 0;
+    // Produtos com ficha técnica ganham um "verso da embalagem" na galeria (demo).
+    const gallery = SPECS[p.name]
+      ? [packBackImage(p.cat, [dose ? `Dose: ${dose} ${p.unit}/ha` : 'Consulte a bula', `Embalagem: ${p.pack}`, 'Agite antes de usar'])]
+      : [];
     prodId[p.name] = insProd.run({
       name: p.name,
       slug: p.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
       desc: p.desc, price: p.price, compare: p.compare || null, cat: catId[p.cat], stock: p.stock,
       unit: p.unit, pack: p.pack, badges: JSON.stringify(p.badges || []), featured: p.featured || 0,
       co2: p.co2 || 0, image: p.img || null,
-      dose: (DOSE[p.name] || {}).dose || 0, packQty: (DOSE[p.name] || {}).packQty || 1,
+      gallery: JSON.stringify(gallery), specs: JSON.stringify(SPECS[p.name] || []), mapa: p.mapa || null,
+      dose, packQty: (DOSE[p.name] || {}).packQty || 1,
       rating: 0, rc: 0 // nota SEMPRE derivada de reviews reais (inseridas abaixo)
     }).lastInsertRowid;
   }

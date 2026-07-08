@@ -45,13 +45,21 @@ function productPage(id) {
     { q: 'Posso trocar ou devolver?', a: 'Sim. Você tem até 7 dias corridos após o recebimento, conforme o Código de Defesa do Consumidor.' },
     ...(p.co2 ? [{ q: 'Qual o impacto ambiental?', a: `Estimamos uma redução de cerca de ${p.co2} kg de CO₂e por unidade em relação ao manejo convencional (estimativa — ver metodologia).` }] : [])
   ];
+  // Galeria (só URLs http — data-URIs de demo não vão ao Google) e ficha técnica no JSON-LD.
+  let gallery = []; try { gallery = JSON.parse(p.gallery || '[]').filter(u => /^https?:/.test(u)); } catch (_) {}
+  let specs = []; try { specs = JSON.parse(p.specs || '[]'); } catch (_) {}
+  const props = [
+    ...specs.map(s => ({ '@type': 'PropertyValue', name: s.k, value: s.v })),
+    ...(p.mapa_reg ? [{ '@type': 'PropertyValue', name: 'Registro MAPA', value: p.mapa_reg }] : [])
+  ];
   const jsonld = ld({
     '@context': 'https://schema.org', '@type': 'Product',
-    name: p.name, description: p.description || desc, image: img, sku: 'MBV-' + p.id,
+    name: p.name, description: p.description || desc, image: gallery.length ? [img, ...gallery] : img, sku: 'MBV-' + p.id,
     brand: { '@type': 'Brand', name: 'MBV — Movimento Brasil Verde' },
     category: p.category_name || undefined,
     offers: { '@type': 'Offer', priceCurrency: 'BRL', price: Number(p.price).toFixed(2), availability: p.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', url },
-    ...(p.rating_count > 0 ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: p.rating, reviewCount: p.rating_count } } : {})
+    ...(p.rating_count > 0 ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: p.rating, reviewCount: p.rating_count } } : {}),
+    ...(props.length ? { additionalProperty: props } : {})
   }) + ld({
     '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Início', item: APP_URL + '/' },
@@ -68,6 +76,8 @@ function productPage(id) {
     <p><strong>${money(p.price)}</strong>${p.unit && p.unit !== 'un' ? ' / ' + esc(p.pack_size || p.unit) : ''} — ${p.stock > 0 ? 'em estoque' : 'esgotado'}</p>
     <p>${esc(p.description || '')}</p>
     <ul><li>Embalagem: ${esc(p.pack_size || '—')}</li><li>Unidade: ${esc(p.unit)}</li>${p.co2 ? `<li>CO₂ evitado (estimativa): ~${p.co2} kg por unidade vs. manejo convencional</li>` : ''}</ul>
+    ${specs.length ? `<h2>Ficha técnica</h2><ul>${specs.map(s => `<li>${esc(s.k)}: ${esc(s.v)}</li>`).join('')}</ul>` : ''}
+    ${p.mapa_reg ? `<p>Registro MAPA nº ${esc(p.mapa_reg)}.</p>` : ''}
     <p>Pague com Cartão, Pix ou o token Neutrotan (NTR) na rede Polygon.</p>
     <h2>Perguntas frequentes</h2>
     <dl>${faq.map(f => `<dt><strong>${esc(f.q)}</strong></dt><dd>${esc(f.a)}</dd>`).join('')}</dl>
