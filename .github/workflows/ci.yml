@@ -33,3 +33,37 @@ jobs:
           fi
       - name: E2E de fumaça (admin + cliente, 3 pagamentos)
         run: npm run e2e
+
+  # Mesmas suítes contra um POSTGRES real (driver de produção — Render Postgres).
+  test-postgres:
+    runs-on: ubuntu-latest
+    name: Postgres (driver de produção)
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mbv
+          POSTGRES_PASSWORD: mbv
+          POSTGRES_DB: mbv_e2e
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+      - name: Suítes de integração (1 banco isolado por arquivo)
+        env:
+          PGPASSWORD: mbv
+        run: |
+          set -e
+          declare -A SUITES=( [t_http]=http.core [t_golive]=golive [t_pricing]=pricing.edge [t_wallet]=wallet )
+          for db in "${!SUITES[@]}"; do
+            psql -h localhost -U mbv -d mbv_e2e -c "CREATE DATABASE ${db};"
+            DATABASE_URL=postgres://mbv:mbv@localhost:5432/${db} node --experimental-sqlite --test server/test/${SUITES[$db]}.test.js
+          done
+      - name: E2E completo no Postgres
+        run: DATABASE_URL=postgres://mbv:mbv@localhost:5432/mbv_e2e npm run e2e

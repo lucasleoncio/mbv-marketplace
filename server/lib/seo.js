@@ -28,8 +28,8 @@ function fill(d) {
     .replace('{{SSR}}', d.ssr || '<div class="container"><div class="loader">Carregando…</div></div>');
 }
 
-function productPage(id) {
-  const p = db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug
+async function productPage(id) {
+  const p = await db.prepare(`SELECT p.*, c.name AS category_name, c.slug AS category_slug
     FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.id = ? AND p.active = 1`).get(id);
   if (!p) return null;
   const url = `${APP_URL}/produto/${p.id}/${p.slug || ''}`.replace(/\/+$/, '');
@@ -85,9 +85,9 @@ function productPage(id) {
   return { title: `${p.name} — MBV`, description: desc, canonical: url, ogTitle: p.name, ogDesc: desc, ogImage: img, jsonld, ssr };
 }
 
-function categoryPage(slug) {
-  const cat = slug ? db.prepare('SELECT * FROM categories WHERE slug = ?').get(slug) : null;
-  const items = db.prepare(`SELECT id, name, price, slug FROM products p WHERE active = 1 ${cat ? 'AND category_id = ?' : ''} ORDER BY featured DESC, id DESC LIMIT 24`).all(...(cat ? [cat.id] : []));
+async function categoryPage(slug) {
+  const cat = slug ? await db.prepare('SELECT * FROM categories WHERE slug = ?').get(slug) : null;
+  const items = await db.prepare(`SELECT id, name, price, slug FROM products p WHERE active = 1 ${cat ? 'AND category_id = ?' : ''} ORDER BY featured DESC, id DESC LIMIT 24`).all(...(cat ? [cat.id] : []));
   const name = cat ? cat.name : 'Todos os produtos';
   const desc = (cat && cat.description) ? cat.description : `${name} sustentáveis no marketplace do Movimento Brasil Verde.`;
   const url = APP_URL + '/produtos' + (cat ? `?cat=${slug}` : '');
@@ -115,8 +115,8 @@ function staticPage(slug) {
   return { title: `${s.t} — MBV`, description: s.d, canonical: url, ssr };
 }
 
-function homePage() {
-  const featured = db.prepare('SELECT id, name, price, slug FROM products WHERE active = 1 AND featured = 1 LIMIT 8').all();
+async function homePage() {
+  const featured = await db.prepare('SELECT id, name, price, slug FROM products WHERE active = 1 AND featured = 1 LIMIT 8').all();
   const list = featured.map(p => `<li><a href="/produto/${p.id}/${p.slug || ''}">${esc(p.name)}</a> — ${money(p.price)}</li>`).join('');
   const jsonld = ld({ '@context': 'https://schema.org', '@type': 'WebSite', name: 'MBV — Movimento Brasil Verde', url: APP_URL + '/', potentialAction: { '@type': 'SearchAction', target: APP_URL + '/produtos?q={search_term_string}', 'query-input': 'required name=search_term_string' } });
   const ssr = `<div class="container"><section style="max-width:820px;margin:30px auto">
@@ -129,13 +129,13 @@ function homePage() {
 
 const PRIVATE = ['carrinho', 'checkout', 'conta', 'pedidos', 'pedido', 'carteira', 'favoritos', 'entrar', 'recuperar', 'redefinir', 'verificar', 'admin'];
 
-function renderHTML(req) {
+async function renderHTML(req) {
   const parts = req.path.split('/').filter(Boolean);
   let d;
   try {
-    if (parts.length === 0) d = homePage();
-    else if (parts[0] === 'produto' && parts[1]) d = productPage(Number(parts[1]));
-    else if (parts[0] === 'produtos') d = categoryPage(req.query.cat);
+    if (parts.length === 0) d = await homePage();
+    else if (parts[0] === 'produto' && parts[1]) d = await productPage(Number(parts[1]));
+    else if (parts[0] === 'produtos') d = await categoryPage(req.query.cat);
     else if (STATIC[parts[0]]) d = staticPage(parts[0]);
   } catch (e) { console.error('[seo]', e.message); }
   if (!d) {

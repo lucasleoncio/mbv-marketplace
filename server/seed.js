@@ -173,10 +173,10 @@ const COUPONS = [
   { code: 'PLANTAR50', type: 'fixed', value: 50, description: 'R$ 50 OFF em compras acima de R$ 300', min_subtotal: 300, cashback_mbv: 0 }
 ];
 
-function seed() {
+async function seed() {
   const insCat = db.prepare('INSERT INTO categories (name, slug, icon, description) VALUES (?,?,?,?)');
   const catId = {};
-  for (const c of CATEGORIES) catId[c.slug] = insCat.run(c.name, c.slug, c.icon, c.description).lastInsertRowid;
+  for (const c of CATEGORIES) catId[c.slug] = (await insCat.run(c.name, c.slug, c.icon, c.description)).lastInsertRowid;
 
   const insProd = db.prepare(`
     INSERT INTO products (name, slug, description, price, compare_at_price, category_id, stock, unit, pack_size, badges, featured, co2, image, gallery, specs, mapa_reg, dose_per_ha, pack_qty, rating, rating_count, active)
@@ -189,7 +189,7 @@ function seed() {
     const gallery = SPECS[p.name]
       ? [packBackImage(p.cat, [dose ? `Dose: ${dose} ${p.unit}/ha` : 'Consulte a bula', `Embalagem: ${p.pack}`, 'Agite antes de usar'])]
       : [];
-    prodId[p.name] = insProd.run({
+    prodId[p.name] = (await insProd.run({
       name: p.name,
       slug: p.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
       desc: p.desc, price: p.price, compare: p.compare || null, cat: catId[p.cat], stock: p.stock,
@@ -198,63 +198,76 @@ function seed() {
       gallery: JSON.stringify(gallery), specs: JSON.stringify(SPECS[p.name] || []), mapa: p.mapa || null,
       dose, packQty: (DOSE[p.name] || {}).packQty || 1,
       rating: 0, rc: 0 // nota SEMPRE derivada de reviews reais (inseridas abaixo)
-    }).lastInsertRowid;
+    })).lastInsertRowid;
   }
 
   const insCoupon = db.prepare('INSERT INTO coupons (code, type, value, description, min_subtotal, cashback_mbv, active) VALUES (?,?,?,?,?,?,1)');
-  for (const c of COUPONS) insCoupon.run(c.code, c.type, c.value, c.description, c.min_subtotal, c.cashback_mbv);
+  for (const c of COUPONS) await insCoupon.run(c.code, c.type, c.value, c.description, c.min_subtotal, c.cashback_mbv);
 
   // Usuários
   const insUser = db.prepare('INSERT INTO users (name, email, password, role, wallet_address) VALUES (?,?,?,?,?)');
-  insUser.run('Administrador MBV', 'admin@mbv.com', bcrypt.hashSync('admin123', 10), 'admin', wallet.makeWalletAddress());
+  await insUser.run('Administrador MBV', 'admin@mbv.com', bcrypt.hashSync('admin123', 10), 'admin', wallet.makeWalletAddress());
 
-  const cust = insUser.run('Cliente Teste', 'cliente@mbv.com', bcrypt.hashSync('cliente123', 10), 'customer', wallet.makeWalletAddress());
+  const cust = await insUser.run('Cliente Teste', 'cliente@mbv.com', bcrypt.hashSync('cliente123', 10), 'customer', wallet.makeWalletAddress());
   // Bônus de boas-vindas + saldo para testar pagamento em MBV Coin
-  wallet.move(cust.lastInsertRowid, 150, 'welcome', 'Bônus de boas-vindas ao MBV', 'welcome');
-  wallet.move(cust.lastInsertRowid, 2000, 'topup', 'Recarga inicial de demonstração', 'demo');
+  await wallet.move(cust.lastInsertRowid, 150, 'welcome', 'Bônus de boas-vindas ao MBV', 'welcome');
+  await wallet.move(cust.lastInsertRowid, 2000, 'topup', 'Recarga inicial de demonstração', 'demo');
 
   // Avaliadores de demonstração (login IMPOSSÍVEL: hash bcrypt de senha aleatória descartada,
   // pré-computado — evita 4 hashSync no boot, que pesam na CPU fracionada do Render free).
   const LOCKED_HASH = '$2a$10$uuoGrnsexR4Pvh8w2CPvd./ewYqLBi.FPWz7qBGHPVOqw65YlxJ0q';
-  const reviewerIds = REVIEWER_NAMES.map((name, i) => insUser.run(
-    name, `demo.avaliador${i + 1}@mbv.com`, LOCKED_HASH,
-    'customer', wallet.makeWalletAddress()
-  ).lastInsertRowid);
+  const reviewerIds = [];
+  for (let i = 0; i < REVIEWER_NAMES.length; i++) {
+    reviewerIds.push((await insUser.run(
+      REVIEWER_NAMES[i], `demo.avaliador${i + 1}@mbv.com`, LOCKED_HASH,
+      'customer', wallet.makeWalletAddress()
+    )).lastInsertRowid);
+  }
   const insRev = db.prepare('INSERT INTO reviews (product_id, user_id, user_name, rating, comment) VALUES (?,?,?,?,?)');
   const updRating = db.prepare('UPDATE products SET rating = ?, rating_count = ? WHERE id = ?');
   for (const [prodName, list] of Object.entries(REVIEWS)) {
     const pid = prodId[prodName];
     if (!pid) continue;
-    list.forEach(([stars, comment], i) => {
-      const uid = reviewerIds[i % reviewerIds.length];
-      insRev.run(pid, uid, REVIEWER_NAMES[i % REVIEWER_NAMES.length], stars, comment);
-    });
+    for (let i = 0; i < list.length; i++) {
+      const [stars, comment] = list[i];
+      await insRev.run(pid, reviewerIds[i % reviewerIds.length], REVIEWER_NAMES[i % REVIEWER_NAMES.length], stars, comment);
+    }
     const avg = list.reduce((s, [r]) => s + r, 0) / list.length;
-    updRating.run(Math.round(avg * 10) / 10, list.length, pid);
+    await updRating.run(Math.round(avg * 10) / 10, list.length, pid);
   }
 
-  db.prepare('UPDATE users SET email_verified = 1').run(); // contas de demonstração já verificadas
+  await db.prepare('UPDATE users SET email_verified = 1').run(); // contas de demonstração já verificadas
 
   console.log('  ✓ Seed concluído:', PRODUCTS.length, 'produtos,', CATEGORIES.length, 'categorias,', COUPONS.length, 'cupons.');
 }
 
 // Só popula se ainda não houver dados.
-function ensureSeed() {
-  const n = db.prepare('SELECT COUNT(*) n FROM users').get().n;
-  if (n === 0) seed();
+async function ensureSeed() {
+  await db.ready;
+  const n = (await db.prepare('SELECT COUNT(*) n FROM users').get()).n;
+  if (n === 0) await seed();
 }
 
 // Execução direta: `node server/seed.js --reset` recria tudo.
 if (require.main === module) {
-  if (process.argv.includes('--reset')) {
-    for (const t of ['transactions', 'reviews', 'favorites', 'order_items', 'orders', 'cart_items', 'coupons', 'products', 'categories', 'users']) {
-      db.prepare(`DELETE FROM ${t}`).run();
-      db.prepare(`DELETE FROM sqlite_sequence WHERE name = ?`).run(t);
+  (async () => {
+    await db.ready;
+    if (process.argv.includes('--reset')) {
+      const tables = ['transactions', 'reviews', 'favorites', 'order_items', 'orders', 'cart_items', 'stock_alerts', 'auth_tokens', 'coupons', 'products', 'categories', 'users'];
+      if (db.isPg) {
+        await db.exec(`TRUNCATE ${tables.join(', ')} RESTART IDENTITY CASCADE`);
+      } else {
+        for (const t of tables) {
+          await db.prepare(`DELETE FROM ${t}`).run();
+          try { await db.prepare('DELETE FROM sqlite_sequence WHERE name = ?').run(t); } catch (_) {}
+        }
+      }
+      console.log('  Banco limpo. Recriando dados...');
     }
-    console.log('  Banco limpo. Recriando dados...');
-  }
-  ensureSeed();
-  console.log('  Pronto.');
+    await ensureSeed();
+    console.log('  Pronto.');
+    if (db.end) await db.end();
+  })().catch((e) => { console.error(e); process.exit(1); });
 }
 
 module.exports = { ensureSeed, seed };

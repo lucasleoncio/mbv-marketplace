@@ -1,4 +1,24 @@
 const express = require('express');
+
+// Express 4 NÃO captura rejeição de handler async (a requisição ficaria pendurada e o
+// erro viraria unhandledRejection). Este shim — o mesmo padrão do pacote
+// express-async-errors, embutido para não somar dependência — encaminha qualquer
+// rejeição ao error handler central. Essencial agora que TODOS os handlers são async.
+{
+  const Layer = require('express/lib/router/layer');
+  Object.defineProperty(Layer.prototype, 'handle', {
+    configurable: true,
+    get() { return this.__asyncWrapped; },
+    set(fn) {
+      this.__asyncWrapped = (fn.length > 3) ? fn : function wrapped(req, res, next) {
+        const out = fn.call(this, req, res, next);
+        if (out && typeof out.catch === 'function') out.catch(next);
+        return out;
+      };
+    }
+  });
+}
+
 const compression = require('compression');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -6,6 +26,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const cfg = require('./config');
 const { PORT, APP_URL, DEMO_MODE, ALLOWED_ORIGINS } = cfg;
+const db = require('./db');
 const { authOptional } = require('./middleware/auth');
 const { ensureSeed } = require('./seed');
 
@@ -37,6 +58,9 @@ app.use(helmet({
 app.use(cors({ origin: (origin, cb) => cb(null, !origin || ALLOWED_ORIGINS.includes(origin)), credentials: false }));
 
 app.use(express.json({ limit: '512kb' }));
+// Garante que o schema do banco está pronto antes de atender (importante no Postgres,
+// onde a criação é assíncrona; no SQLite resolve na hora).
+app.use(async (_req, _res, next) => { try { await db.ready; } catch (_) {} next(); });
 app.use(authOptional);
 
 // --- Rate limiting (store em memória; em multi-instância, use store compartilhado) ---
@@ -59,10 +83,10 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/jobs', require('./routes/jobs'));
 
-app.get('/api/health', (_req, res) => {
+app.get('/api/health', async (_req, res) => {
   let dbUp = true;
-  try { require('./db').prepare('SELECT 1 AS ok').get(); } catch (_) { dbUp = false; }
-  res.status(dbUp ? 200 : 503).json({ ok: dbUp, db: dbUp ? 'up' : 'down', service: 'MBV Marketplace', demo: DEMO_MODE });
+  try { await db.prepare('SELECT 1 AS ok').get(); } catch (_) { dbUp = false; }
+  res.status(dbUp ? 200 : 503).json({ ok: dbUp, db: dbUp ? 'up' : 'down', driver: db.__driver, service: 'MBV Marketplace', demo: DEMO_MODE });
 });
 app.get('/api/chain', (_req, res) => {
   const pub = require('./lib/chain').publicConfig();
@@ -95,10 +119,9 @@ app.post('/api/client-error', (req, res) => {
 });
 
 // Sitemap dinâmico (produtos + categorias) — antes do static
-app.get('/sitemap.xml', (_req, res) => {
-  const db = require('./db');
-  const cats = db.prepare('SELECT slug FROM categories').all();
-  const prods = db.prepare('SELECT id, slug FROM products WHERE active = 1').all();
+app.get('/sitemap.xml', async (_req, res) => {
+  const cats = await db.prepare('SELECT slug FROM categories').all();
+  const prods = await db.prepare('SELECT id, slug FROM products WHERE active = 1').all();
   const urls = [APP_URL + '/', APP_URL + '/produtos',
     ...cats.map(c => `${APP_URL}/produtos?cat=${c.slug}`),
     ...prods.map(p => `${APP_URL}/produto/${p.id}/${p.slug || ''}`),
@@ -109,10 +132,12 @@ app.get('/sitemap.xml', (_req, res) => {
 
 // Frontend: estáticos (sem auto-index — o SSR cuida das páginas HTML)
 app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, maxAge: '7d', etag: true }));
-app.get('*', (req, res, next) => {
+app.get('*', async (req, res, next) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) return next();
-  res.set('Cache-Control', 'no-cache');
-  res.send(require('./lib/seo').renderHTML(req));
+  try {
+    res.set('Cache-Control', 'no-cache');
+    res.send(await require('./lib/seo').renderHTML(req));
+  } catch (e) { next(e); }
 });
 
 // Handler de erros — não vaza detalhes internos ao cliente (só mensagens de erros 4xx).
@@ -140,31 +165,37 @@ function preflight() {
 }
 preflight();
 
-// Prepara os dados (seed na primeira execução + índice de busca), com log de fase e
-// tolerância a falha: um problema aqui NÃO pode impedir o servidor de subir.
-function bootstrapData() {
+// Prepara os dados (schema + seed na primeira execução + índice de busca), com log de
+// fase e tolerância a falha: um problema aqui NÃO pode impedir o servidor de subir.
+async function bootstrapData() {
+  try { await db.ready; } catch (e) { console.error('  [boot] ⚠️ banco indisponível:', e && e.message ? e.message : e); }
   let t = Date.now();
-  try { ensureSeed(); console.log(`  [boot] seed verificado em ${Date.now() - t}ms`); }
+  try { await ensureSeed(); console.log(`  [boot] seed verificado em ${Date.now() - t}ms (driver: ${db.__driver})`); }
   catch (e) { console.error('  [boot] ⚠️ seed falhou:', e && e.message ? e.message : e); }
   t = Date.now();
-  try { require('./db').reindexSearch(); console.log(`  [boot] índice de busca em ${Date.now() - t}ms`); }
+  try { await db.reindexSearch(); console.log(`  [boot] índice de busca em ${Date.now() - t}ms`); }
   catch (e) { console.error('  [boot] ⚠️ reindex falhou:', e && e.message ? e.message : e); }
 }
 
-// Exporta o app (testes de integração fazem require e usam app.listen(0) em porta efêmera).
+// Exporta o app + promessa de prontidão (testes: `await app.ready` antes do listen(0)).
 module.exports = app;
+module.exports.ready = bootstrapData();
 
 if (require.main === module) {
   // Execução direta (npm start): abre a porta PRIMEIRO — o Render detecta o serviço
-  // imediatamente (sem "no open ports detected") — e só então roda o seed; as
-  // requisições que chegarem nesse meio-tempo aguardam na fila do event loop.
-  app.listen(PORT, () => {
+  // imediatamente (sem "no open ports detected") — o seed roda em paralelo e as
+  // requisições aguardam o middleware de prontidão.
+  const server = app.listen(PORT, () => {
     console.log('\n  🌱  MBV Marketplace no ar!');
     console.log(`     →  http://localhost:${PORT}\n`);
     console.log('  Admin:   admin@mbv.com    / admin123');
     console.log('  Cliente: cliente@mbv.com  / cliente123\n');
   });
-  bootstrapData();
-} else {
-  bootstrapData(); // testes: banco pronto antes do app.listen(0)
+  // Desligamento gracioso (o Render envia SIGTERM a cada deploy): fecha conexões e o pool.
+  process.on('SIGTERM', () => {
+    server.close(() => {
+      Promise.resolve(db.end && db.end()).finally(() => process.exit(0));
+    });
+    setTimeout(() => process.exit(0), 8000).unref();
+  });
 }

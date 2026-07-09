@@ -3,7 +3,7 @@ const db = require('../db');
 const { JWT_SECRET } = require('../config');
 
 // Lê o token (se houver) e popula req.user. Não bloqueia.
-function authOptional(req, _res, next) {
+async function authOptional(req, _res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (token) {
@@ -11,7 +11,7 @@ function authOptional(req, _res, next) {
       const payload = jwt.verify(token, JWT_SECRET);
       // Tokens de escopo restrito (ex.: etapa intermediária do 2FA) NUNCA viram sessão.
       if (payload.scope) return next();
-      const user = db.prepare('SELECT id, name, email, role, mbv_balance, wallet_address, phone FROM users WHERE id = ?').get(payload.id);
+      const user = await db.prepare('SELECT id, name, email, role, mbv_balance, wallet_address, phone FROM users WHERE id = ?').get(payload.id);
       if (user) req.user = user;
     } catch (_) { /* token inválido => segue como visitante */ }
   }

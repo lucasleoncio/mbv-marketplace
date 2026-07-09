@@ -6,23 +6,23 @@ const { getCartItems, computeTotals } = require('../lib/pricing');
 const router = express.Router();
 
 // POST /api/coupons/validate  { code }  -> aplica sobre o carrinho do usuário
-router.post('/validate', requireAuth, (req, res) => {
-  const items = getCartItems(req.user.id);
+router.post('/validate', requireAuth, async (req, res) => {
+  const items = await getCartItems(req.user.id);
   if (!items.length) return res.status(400).json({ error: 'Seu carrinho está vazio.' });
-  const totals = computeTotals(items, req.body.code, req.body.payment, req.body.cep, req.body.cpf);
+  const totals = await computeTotals(items, req.body.code, req.body.payment, req.body.cep, req.body.cpf);
   if (totals.couponError) return res.status(400).json({ error: totals.couponError });
   if (!totals.coupon) return res.status(400).json({ error: 'Cupom inválido.' });
   res.json({ totals });
 });
 
 // GET /api/coupons (admin)
-router.get('/', requireAdmin, (_req, res) => {
-  res.json({ coupons: db.prepare('SELECT * FROM coupons ORDER BY id DESC').all() });
+router.get('/', requireAdmin, async (_req, res) => {
+  res.json({ coupons: await db.prepare('SELECT * FROM coupons ORDER BY id DESC').all() });
 });
 
 // GET /api/coupons/report (admin) -> desempenho por cupom (pedidos, receita, comissão de afiliado)
-router.get('/report', requireAdmin, (_req, res) => {
-  const rows = db.prepare(`
+router.get('/report', requireAdmin, async (_req, res) => {
+  const rows = await db.prepare(`
     SELECT c.code, c.affiliate, c.commission_pct, c.cpf_cnpj, c.type, c.value, c.active,
       COUNT(o.id) AS orders,
       COALESCE(SUM(CASE WHEN o.payment_status='paid' AND o.status!='cancelled' THEN 1 ELSE 0 END),0) AS paid_orders,
@@ -36,25 +36,25 @@ router.get('/report', requireAdmin, (_req, res) => {
 });
 
 // POST /api/coupons (admin)
-router.post('/', requireAdmin, (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   const code = String(req.body.code || '').toUpperCase().trim();
   if (!code) return res.status(400).json({ error: 'Informe o código do cupom.' });
-  const exists = db.prepare('SELECT id FROM coupons WHERE code = ?').get(code);
+  const exists = await db.prepare('SELECT id FROM coupons WHERE code = ?').get(code);
   if (exists) return res.status(409).json({ error: 'Já existe um cupom com este código.' });
-  const info = db.prepare(`
+  const info = await db.prepare(`
     INSERT INTO coupons (code, type, value, description, min_subtotal, cashback_mbv, cpf_cnpj, affiliate, commission_pct, active)
     VALUES (?,?,?,?,?,?,?,?,?,1)
   `).run(code, req.body.type === 'fixed' ? 'fixed' : 'percent', Number(req.body.value) || 0,
     String(req.body.description || ''), Number(req.body.min_subtotal) || 0, Number(req.body.cashback_mbv) || 0,
     String(req.body.cpf_cnpj || '').replace(/\D/g, '') || null, String(req.body.affiliate || '').trim() || null, Number(req.body.commission_pct) || 0);
-  res.status(201).json({ coupon: db.prepare('SELECT * FROM coupons WHERE id = ?').get(info.lastInsertRowid) });
+  res.status(201).json({ coupon: await db.prepare('SELECT * FROM coupons WHERE id = ?').get(info.lastInsertRowid) });
 });
 
 // PUT /api/coupons/:id (admin) - alterna ativo / edita
-router.put('/:id', requireAdmin, (req, res) => {
-  const c = db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id);
+router.put('/:id', requireAdmin, async (req, res) => {
+  const c = await db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Cupom não encontrado.' });
-  db.prepare(`UPDATE coupons SET type=?, value=?, description=?, min_subtotal=?, cashback_mbv=?, cpf_cnpj=?, affiliate=?, commission_pct=?, active=? WHERE id=?`)
+  await db.prepare(`UPDATE coupons SET type=?, value=?, description=?, min_subtotal=?, cashback_mbv=?, cpf_cnpj=?, affiliate=?, commission_pct=?, active=? WHERE id=?`)
     .run(req.body.type !== undefined ? (req.body.type === 'fixed' ? 'fixed' : 'percent') : c.type,
       req.body.value !== undefined ? Number(req.body.value) : c.value,
       req.body.description !== undefined ? String(req.body.description) : c.description,
@@ -64,11 +64,11 @@ router.put('/:id', requireAdmin, (req, res) => {
       req.body.affiliate !== undefined ? (String(req.body.affiliate).trim() || null) : c.affiliate,
       req.body.commission_pct !== undefined ? Number(req.body.commission_pct) : c.commission_pct,
       req.body.active !== undefined ? (req.body.active ? 1 : 0) : c.active, c.id);
-  res.json({ coupon: db.prepare('SELECT * FROM coupons WHERE id = ?').get(c.id) });
+  res.json({ coupon: await db.prepare('SELECT * FROM coupons WHERE id = ?').get(c.id) });
 });
 
-router.delete('/:id', requireAdmin, (req, res) => {
-  db.prepare('DELETE FROM coupons WHERE id = ?').run(req.params.id);
+router.delete('/:id', requireAdmin, async (req, res) => {
+  await db.prepare('DELETE FROM coupons WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 

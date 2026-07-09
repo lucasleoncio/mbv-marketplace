@@ -39,22 +39,22 @@ router.post('/mercadopago', async (req, res) => {
     if (!payment || payment.status !== 'approved') return;
 
     const orderId = Number(payment.external_reference);
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    const order = await db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
     if (!order || order.payment_status === 'paid') return; // idempotente
 
     // Confirmação + cashback numa transação; o UPDATE condicional garante idempotência
     // mesmo com notificações duplicadas chegando em paralelo (não credita cashback 2x).
-    const confirm = db.transaction(() => {
-      const upd = db.prepare("UPDATE orders SET payment_status = 'paid' WHERE id = ? AND payment_status != 'paid'").run(orderId);
+    const confirm = db.transaction(async () => {
+      const upd = await db.prepare("UPDATE orders SET payment_status = 'paid' WHERE id = ? AND payment_status != 'paid'").run(orderId);
       if (upd.changes !== 1) return false;
       if (order.cashback_mbv > 0) {
-        wallet.move(order.user_id, order.cashback_mbv, 'cashback', `Cashback do pedido ${order.code}`, order.code);
+        await wallet.move(order.user_id, order.cashback_mbv, 'cashback', `Cashback do pedido ${order.code}`, order.code);
       }
       return true;
     });
-    if (!confirm()) return; // outro webhook já confirmou
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(order.user_id);
-    const full = { ...order, payment_status: 'paid', items: db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId) };
+    if (!(await confirm())) return; // outro webhook já confirmou
+    const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(order.user_id);
+    const full = { ...order, payment_status: 'paid', items: await db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId) };
     email.sendOrderConfirmation(user, full).catch(() => {});
   } catch (e) {
     console.error('[webhook mercadopago]', e.message);

@@ -62,8 +62,8 @@ function serialize(p) {
 }
 
 // ---------- Categorias ----------
-router.get('/meta/categories', (_req, res) => {
-  const cats = db.prepare(`
+router.get('/meta/categories', async (_req, res) => {
+  const cats = await db.prepare(`
     SELECT c.*, (SELECT COUNT(*) FROM products p WHERE p.category_id = c.id AND p.active = 1) AS product_count
     FROM categories c ORDER BY c.name
   `).all();
@@ -72,7 +72,7 @@ router.get('/meta/categories', (_req, res) => {
 
 // ---------- Listagem com filtros ----------
 // GET /api/products?q=&category=slug&min=&max=&sort=&featured=&page=&limit=
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { q, category, min, max, sort, featured } = req.query;
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(60, Math.max(1, parseInt(req.query.limit) || 12));
@@ -88,12 +88,14 @@ router.get('/', (req, res) => {
       if (SYNONYMS[w]) SYNONYMS[w].split(' ').forEach(t => terms.add(t));
     });
     const list = [...terms];
-    const conds = list.map((t, i) => { params['s' + i] = `%${t}%`; return `p.search_text LIKE @s${i}`; });
+    const LIKE = db.LIKE; // 'LIKE' no SQLite (case-insensitive p/ ASCII), 'ILIKE' no Postgres
+    const conds = list.map((t, i) => { params['s' + i] = `%${t}%`; return `p.search_text ${LIKE} @s${i}`; });
     params.qraw = `%${q}%`;
-    conds.push('p.name LIKE @qraw', 'p.description LIKE @qraw'); // fallback (com acento)
+    conds.push(`p.name ${LIKE} @qraw`, `p.description ${LIKE} @qraw`); // fallback (com acento)
     where.push('(' + conds.join(' OR ') + ')');
     // Relevância: nº de termos casados pesa mais; frase crua no nome dá bônus.
-    relevance = `((${list.map((_, i) => `(p.search_text LIKE @s${i})`).join(' + ')}) * 3 + (CASE WHEN p.name LIKE @qraw THEN 5 ELSE 0 END))`;
+    // (CASE deixa o score portável: booleanos não somam direto no Postgres)
+    relevance = `((${list.map((_, i) => `(CASE WHEN p.search_text ${LIKE} @s${i} THEN 1 ELSE 0 END)`).join(' + ')}) * 3 + (CASE WHEN p.name ${LIKE} @qraw THEN 5 ELSE 0 END))`;
   }
   if (category) { where.push('c.slug = @cat'); params.cat = category; }
   if (min) { where.push('p.price >= @min'); params.min = Number(min); }
@@ -116,8 +118,8 @@ router.get('/', (req, res) => {
   else if (relevance) order = `${relevance} DESC, p.featured DESC, p.rating_count DESC, p.id DESC`; // busca sem sort explícito: mérito
 
   const clause = where.length ? 'WHERE ' + where.join(' AND ') : '';
-  const total = db.prepare(`SELECT COUNT(*) n FROM products p LEFT JOIN categories c ON c.id=p.category_id ${clause}`).get(params).n;
-  const items = db.prepare(`
+  const total = (await db.prepare(`SELECT COUNT(*) n FROM products p LEFT JOIN categories c ON c.id=p.category_id ${clause}`).get(params)).n;
+  const items = await db.prepare(`
     SELECT p.*, c.name AS category_name, c.slug AS category_slug
     FROM products p LEFT JOIN categories c ON c.id = p.category_id ${soldJoin}
     ${clause} ORDER BY ${order} LIMIT @limit OFFSET @offset
@@ -127,11 +129,11 @@ router.get('/', (req, res) => {
 });
 
 // Resumo de produtos por IDs — usado pelo carrinho/favoritos de convidado. (Antes de /:id)
-router.get('/by-ids', (req, res) => {
+router.get('/by-ids', async (req, res) => {
   const ids = String(req.query.ids || '').split(',').map(n => parseInt(n)).filter(Boolean).slice(0, 100);
   if (!ids.length) return res.json({ items: [] });
   const ph = ids.map(() => '?').join(',');
-  const rows = db.prepare(`
+  const rows = await db.prepare(`
     SELECT p.*, c.name AS category_name, c.slug AS category_slug
     FROM products p LEFT JOIN categories c ON c.id = p.category_id
     WHERE p.active = 1 AND p.id IN (${ph})
@@ -141,13 +143,13 @@ router.get('/by-ids', (req, res) => {
 
 // ---------- Detalhe ----------
 // POST /api/products/:id/notify — "avise-me quando chegar" (captura demanda de esgotado)
-router.post('/:id/notify', (req, res) => {
-  const p = db.prepare('SELECT id, name, stock FROM products WHERE id = ? AND active = 1').get(req.params.id);
+router.post('/:id/notify', async (req, res) => {
+  const p = await db.prepare('SELECT id, name, stock FROM products WHERE id = ? AND active = 1').get(req.params.id);
   if (!p) return res.status(404).json({ error: 'Produto não encontrado.' });
   const mail = String(req.body.email || (req.user && req.user.email) || '').trim().toLowerCase();
   if (!/.+@.+\..+/.test(mail)) return res.status(400).json({ error: 'Informe um e-mail válido.' });
   if (p.stock > 0) return res.status(400).json({ error: 'Este produto está disponível — adicione ao carrinho.' });
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO stock_alerts (product_id, email) VALUES (?,?)
     ON CONFLICT(product_id, email) DO UPDATE SET notified = 0
   `).run(p.id, mail);
@@ -155,24 +157,24 @@ router.post('/:id/notify', (req, res) => {
 });
 
 // Reposição de estoque: avisa quem pediu (fire-and-forget; e-mail em dev-log sem chave).
-function notifyBackInStock(p) {
+async function notifyBackInStock(p) {
   try {
-    const rows = db.prepare('SELECT email FROM stock_alerts WHERE product_id = ? AND notified = 0').all(p.id);
+    const rows = await db.prepare('SELECT email FROM stock_alerts WHERE product_id = ? AND notified = 0').all(p.id);
     if (!rows.length) return;
-    db.prepare('UPDATE stock_alerts SET notified = 1 WHERE product_id = ? AND notified = 0').run(p.id);
+    await db.prepare('UPDATE stock_alerts SET notified = 1 WHERE product_id = ? AND notified = 0').run(p.id);
     for (const r of rows) email.sendBackInStock(r.email, p).catch(() => {});
   } catch (e) { console.error('[back-in-stock]', e.message); }
 }
 
-router.get('/:id', (req, res) => {
-  const p = db.prepare(`
+router.get('/:id', async (req, res) => {
+  const p = await db.prepare(`
     SELECT p.*, c.name AS category_name, c.slug AS category_slug
     FROM products p LEFT JOIN categories c ON c.id = p.category_id WHERE p.id = ?
   `).get(req.params.id);
   if (!p) return res.status(404).json({ error: 'Produto não encontrado.' });
 
-  const reviews = db.prepare('SELECT * FROM reviews WHERE product_id = ? ORDER BY id DESC').all(p.id);
-  const related = db.prepare(`
+  const reviews = await db.prepare('SELECT * FROM reviews WHERE product_id = ? ORDER BY id DESC').all(p.id);
+  const related = await db.prepare(`
     SELECT p.*, c.name AS category_name, c.slug AS category_slug FROM products p
     LEFT JOIN categories c ON c.id=p.category_id
     WHERE p.category_id = ? AND p.id != ? AND p.active = 1 ORDER BY RANDOM() LIMIT 4
@@ -182,25 +184,25 @@ router.get('/:id', (req, res) => {
 });
 
 // ---------- Avaliações (cliente autenticado) ----------
-router.post('/:id/reviews', requireAuth, (req, res) => {
-  const product = db.prepare('SELECT id FROM products WHERE id = ?').get(req.params.id);
+router.post('/:id/reviews', requireAuth, async (req, res) => {
+  const product = await db.prepare('SELECT id FROM products WHERE id = ?').get(req.params.id);
   if (!product) return res.status(404).json({ error: 'Produto não encontrado.' });
   const rating = Math.min(5, Math.max(1, parseInt(req.body.rating) || 0));
   if (!rating) return res.status(400).json({ error: 'Informe uma nota de 1 a 5.' });
 
   // Compra verificada: o usuário tem um pedido PAGO com este produto.
-  const bought = db.prepare(`SELECT 1 FROM orders o JOIN order_items oi ON oi.order_id = o.id
+  const bought = await db.prepare(`SELECT 1 FROM orders o JOIN order_items oi ON oi.order_id = o.id
     WHERE o.user_id = ? AND oi.product_id = ? AND o.payment_status = 'paid' LIMIT 1`).get(req.user.id, product.id);
   if (!bought && !DEMO_MODE) return res.status(403).json({ error: 'Apenas quem comprou este produto pode avaliá-lo.' });
 
-  db.prepare(`
-    INSERT INTO reviews (product_id, user_id, user_name, rating, comment, verified) VALUES (?,?,?,?,?,?)
-    ON CONFLICT(product_id, user_id) DO UPDATE SET rating=excluded.rating, comment=excluded.comment, verified=excluded.verified, created_at=datetime('now')
-  `).run(product.id, req.user.id, req.user.name, rating, String(req.body.comment || '').slice(0, 600), bought ? 1 : 0);
+  await db.prepare(`
+    INSERT INTO reviews (product_id, user_id, user_name, rating, comment, verified, created_at) VALUES (?,?,?,?,?,?,?)
+    ON CONFLICT(product_id, user_id) DO UPDATE SET rating=excluded.rating, comment=excluded.comment, verified=excluded.verified, created_at=excluded.created_at
+  `).run(product.id, req.user.id, req.user.name, rating, String(req.body.comment || '').slice(0, 600), bought ? 1 : 0, db.utcNow());
 
   // Recalcula média do produto
-  const agg = db.prepare('SELECT AVG(rating) avg, COUNT(*) n FROM reviews WHERE product_id = ?').get(product.id);
-  db.prepare('UPDATE products SET rating = ?, rating_count = ? WHERE id = ?')
+  const agg = await db.prepare('SELECT AVG(rating) avg, COUNT(*) n FROM reviews WHERE product_id = ?').get(product.id);
+  await db.prepare('UPDATE products SET rating = ?, rating_count = ? WHERE id = ?')
     .run(Math.round(agg.avg * 10) / 10, agg.n, product.id);
 
   res.status(201).json({ ok: true, rating: Math.round(agg.avg * 10) / 10, rating_count: agg.n });
@@ -248,20 +250,20 @@ function readProductBody(b) {
   };
 }
 
-router.post('/', requireAdmin, (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   const d = readProductBody(req.body);
   if (!d.name) return res.status(400).json({ error: 'Informe o nome do produto.' });
   if (d.price <= 0) return res.status(400).json({ error: 'Informe um preço válido.' });
-  const info = db.prepare(`
+  const info = await db.prepare(`
     INSERT INTO products (name, slug, description, price, compare_at_price, category_id, stock, unit, pack_size, image, gallery, badges, specs, mapa_reg, featured, co2, active)
     VALUES (@name,@slug,@description,@price,@compare_at_price,@category_id,@stock,@unit,@pack_size,@image,@gallery,@badges,@specs,@mapa_reg,@featured,@co2,@active)
   `).run({ ...d, slug: slugify(d.name) });
-  const p = db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid);
+  const p = await db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid);
   res.status(201).json({ product: serialize(p) });
 });
 
-router.put('/:id', requireAdmin, (req, res) => {
-  const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
+router.put('/:id', requireAdmin, async (req, res) => {
+  const existing = await db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Produto não encontrado.' });
   const d = readProductBody({
     ...existing, ...req.body,
@@ -269,22 +271,22 @@ router.put('/:id', requireAdmin, (req, res) => {
     gallery: req.body.gallery ?? parseJSON(existing.gallery, []),
     specs: req.body.specs ?? parseJSON(existing.specs, [])
   });
-  db.prepare(`
+  await db.prepare(`
     UPDATE products SET name=@name, slug=@slug, description=@description, price=@price, compare_at_price=@compare_at_price,
       category_id=@category_id, stock=@stock, unit=@unit, pack_size=@pack_size, image=@image, gallery=@gallery,
       badges=@badges, specs=@specs, mapa_reg=@mapa_reg, featured=@featured, co2=@co2, active=@active WHERE id=@id
   `).run({ ...d, slug: slugify(d.name), id: existing.id });
-  const p = db.prepare('SELECT * FROM products WHERE id = ?').get(existing.id);
+  const p = await db.prepare('SELECT * FROM products WHERE id = ?').get(existing.id);
   // Produto voltou ao estoque? Dispara o "avise-me quando chegar".
-  if (existing.stock <= 0 && p.stock > 0) notifyBackInStock(p);
+  if (existing.stock <= 0 && p.stock > 0) notifyBackInStock(p).catch(() => {});
   res.json({ product: serialize(p) });
 });
 
-router.delete('/:id', requireAdmin, (req, res) => {
-  const existing = db.prepare('SELECT id FROM products WHERE id = ?').get(req.params.id);
+router.delete('/:id', requireAdmin, async (req, res) => {
+  const existing = await db.prepare('SELECT id FROM products WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Produto não encontrado.' });
   // Soft delete para preservar histórico de pedidos
-  db.prepare('UPDATE products SET active = 0 WHERE id = ?').run(existing.id);
+  await db.prepare('UPDATE products SET active = 0 WHERE id = ?').run(existing.id);
   res.json({ ok: true });
 });
 

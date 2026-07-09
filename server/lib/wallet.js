@@ -12,9 +12,9 @@ function makeWalletAddress() {
 }
 
 // Movimenta o saldo. amount > 0 credita, < 0 debita. Retorna o novo saldo.
-function move(userId, amount, type, description, ref) {
+async function move(userId, amount, type, description, ref) {
   amount = round2(amount);
-  const user = db.prepare('SELECT mbv_balance FROM users WHERE id = ?').get(userId);
+  const user = await db.prepare('SELECT mbv_balance FROM users WHERE id = ?').get(userId);
   if (!user) throw new Error('Usuário não encontrado');
   const newBalance = round2(user.mbv_balance + amount);
   if (newBalance < -0.000001) {
@@ -22,14 +22,14 @@ function move(userId, amount, type, description, ref) {
     err.code = 'INSUFFICIENT_FUNDS';
     throw err;
   }
-  db.prepare('UPDATE users SET mbv_balance = ? WHERE id = ?').run(newBalance, userId);
-  db.prepare(
+  await db.prepare('UPDATE users SET mbv_balance = ? WHERE id = ?').run(newBalance, userId);
+  await db.prepare(
     'INSERT INTO transactions (user_id, type, amount, balance_after, description, ref) VALUES (?,?,?,?,?,?)'
   ).run(userId, type, amount, newBalance, description || '', ref || '');
   return newBalance;
 }
 
-function history(userId, limit = 50) {
+async function history(userId, limit = 50) {
   return db.prepare(
     'SELECT * FROM transactions WHERE user_id = ? ORDER BY id DESC LIMIT ?'
   ).all(userId, limit);

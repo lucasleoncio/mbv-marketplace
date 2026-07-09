@@ -5,11 +5,12 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 
-function startApp(env = {}) {
+async function startApp(env = {}) {
   process.env.MBV_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'mbvtest-'));
   process.env.AUTH_RATE_MAX = '1000'; // testes fazem muitas chamadas de auth; o limite real segue 12/min
   Object.assign(process.env, env);
   const app = require('../index'); // exporta o app sem listen (require.main !== module)
+  await app.ready; // schema + seed prontos antes de abrir a porta
   return new Promise((resolve) => {
     const server = app.listen(0, '127.0.0.1', () => {
       const base = `http://127.0.0.1:${server.address().port}`;

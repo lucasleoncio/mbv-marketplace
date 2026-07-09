@@ -8,20 +8,19 @@ const router = express.Router();
 router.use(requireAuth);
 
 // GET /api/wallet -> saldo, endereço, cotação e extrato
-router.get('/', (req, res) => {
-  const u = db.prepare('SELECT mbv_balance, wallet_address FROM users WHERE id = ?').get(req.user.id);
+router.get('/', async (req, res) => {
+  const u = await db.prepare('SELECT mbv_balance, wallet_address FROM users WHERE id = ?').get(req.user.id);
   res.json({
     balance: u.mbv_balance,
     balance_brl: Math.round(u.mbv_balance * TOKEN.brlPerToken * 100) / 100,
     address: u.wallet_address,
     token: TOKEN,
-    transactions: wallet.history(req.user.id, 100)
+    transactions: await wallet.history(req.user.id, 100)
   });
 });
 
 // POST /api/wallet/topup { amount_brl }  -> compra de MBV Coin (on-ramp SIMULADO)
-// Em produção, este crédito só ocorre após confirmação real de pagamento (cartão/Pix) pelo gateway.
-router.post('/topup', (req, res) => {
+router.post('/topup', async (req, res) => {
   // GO-LIVE: a recarga simulada credita NTR sem pagamento real — só existe em modo demonstração.
   if (!DEMO_MODE)
     return res.status(503).json({ error: 'Recarga de NTR temporariamente indisponível. Em breve via Pix/Cartão.' });
@@ -29,7 +28,7 @@ router.post('/topup', (req, res) => {
   if (!brl || brl < 10) return res.status(400).json({ error: 'Valor mínimo de recarga: R$ 10,00.' });
   if (brl > 100000) return res.status(400).json({ error: 'Valor acima do limite por recarga.' });
   const tokens = Math.round((brl / TOKEN.brlPerToken) * 100) / 100;
-  const newBalance = wallet.move(req.user.id, tokens, 'topup',
+  const newBalance = await wallet.move(req.user.id, tokens, 'topup',
     `Recarga de R$ ${brl.toFixed(2)} → ${tokens} NTR`, 'topup');
   res.status(201).json({ balance: newBalance, credited: tokens });
 });

@@ -46,20 +46,20 @@ test('NTR: extractTransferToStore soma só as transferências para a loja', () =
   assert.equal(total, 1234n); // ignora a transferência para "outro"
 });
 
-test('totais: subtotal, frete por região e cashback', () => {
-  const t = computeTotals([{ price: 100, quantity: 2 }], null, 'card', '88010000', '');
+test('totais: subtotal, frete por região e cashback', async () => {
+  const t = await computeTotals([{ price: 100, quantity: 2 }], null, 'card', '88010000', '');
   assert.equal(t.subtotal, 200);
   assert.equal(t.shipping, 27.9);
   assert.equal(t.discount, 0);
   assert.ok(t.cashbackMbv > 0);
 });
 
-test('totais: 5% de desconto pagando em NTR', () => {
-  const t = computeTotals([{ price: 100, quantity: 2 }], null, 'mbv', '88010000', '');
+test('totais: 5% de desconto pagando em NTR', async () => {
+  const t = await computeTotals([{ price: 100, quantity: 2 }], null, 'mbv', '88010000', '');
   assert.equal(t.cryptoDiscount, 10); // 5% de 200
 });
 
-test('totais: frete grátis acima de R$ 500', () => {
-  const t = computeTotals([{ price: 600, quantity: 1 }], null, 'card', '88010000', '');
+test('totais: frete grátis acima de R$ 500', async () => {
+  const t = await computeTotals([{ price: 600, quantity: 1 }], null, 'card', '88010000', '');
   assert.equal(t.shipping, 0);
 });

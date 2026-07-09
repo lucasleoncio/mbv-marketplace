@@ -37,12 +37,11 @@ simulados** (nada de pedido aprovado sem cobrança real).
 ## 5. Persistência dos dados (IMPORTANTE)
 No plano free os dados **zeram a cada deploy**. Escolha um caminho:
 - **Rápido (SQLite + disco):** adicione um *Render Disk* e defina `MBV_DATA_DIR=/var/data`. Os dados passam a persistir (não escala para múltiplas instâncias).
-- **ESCOLHIDO (decisão de 08/07/2026) — PlanetScale Postgres, plano PS-5 (US$ 5/mês):**
-  1. Crie a conta em planetscale.com e um banco Postgres **PS-5 single node** (ref.: planetscale.com/blog/5-dollar-planetscale).
-  2. **Região:** escolha a mesma região/mais próxima do serviço no Render (menor latência).
-  3. Copie a connection string do painel e defina `DATABASE_URL=postgres://...` (TLS já vem exigido na URL da PlanetScale).
-  4. A migração do código (camada de dados async + dialeto PG, com SQLite continuando como fallback local/demo) é a Leva 9 do plano do comitê — o app só usa Postgres quando `DATABASE_URL` existir.
-  - Nota: PS-5 é nó único (sem alta disponibilidade) — adequado ao estágio atual; upgrade para HA na própria PlanetScale sem migração.
+- **ESCOLHIDO (08/07/2026) — Render Postgres (plano pago já ativo):**
+  1. No painel do Render: New → **PostgreSQL** (mesma região do web service — use a *Internal Database URL* para latência mínima).
+  2. No web service, defina `DATABASE_URL` com a Internal Database URL (se usar a External, o app ativa TLS sozinho).
+  3. O app usa Postgres automaticamente quando `DATABASE_URL` existir; sem ela, segue no SQLite (demo/local). Rollback = remover a env.
+  4. Uploads de imagens continuam em disco — adicione um Render Disk (`MBV_UPLOAD_DIR=/var/data/uploads`) ou migre para S3/R2 (item ARQ-9 do plano).
 
 O app avisa no boot se detectar armazenamento possivelmente efêmero.
 
@@ -50,7 +49,7 @@ O app avisa no boot se detectar armazenamento possivelmente efêmero.
 1. [ ] `JWT_SECRET`, `APP_URL`, `MBV_DEMO_MODE=false`
 2. [ ] Mercado Pago (token + public key + webhook secret) e webhook configurado
 3. [ ] Resend (`RESEND_API_KEY` + `EMAIL_FROM`)
-4. [ ] Persistência: PlanetScale Postgres PS-5 + `DATABASE_URL` (decisão 08/07/2026; código = Leva 9)
+4. [ ] Persistência: Render Postgres + `DATABASE_URL` (Internal URL, mesma região) + disco p/ uploads
 5. [ ] (Opcional) NTR mainnet, `GA_ID`, domínio próprio
 6. [ ] Deploy e conferir `GET /api/health` → `{ ok: true, db: "up", demo: false }`
 7. [ ] Rodar `npm test` (núcleo financeiro)
