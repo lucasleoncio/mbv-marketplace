@@ -29,10 +29,12 @@ const { PORT, APP_URL, DEMO_MODE, ALLOWED_ORIGINS } = cfg;
 const db = require('./db');
 const { authOptional } = require('./middleware/auth');
 const { ensureSeed } = require('./seed');
+const { logger, captureException, requestLogger, sentryEnabled } = require('./lib/observability');
 
 const app = express();
 app.set('trust proxy', 1); // atrás do proxy do Render — necessário p/ rate-limit por IP real
 app.use(compression()); // gzip em HTML/CSS/JS
+app.use(requestLogger()); // 1 linha estruturada por requisição (exceto /api/health)
 
 // --- Segurança: cabeçalhos (Helmet) + CSP compatível com os assets do app ---
 app.use(helmet({
@@ -112,9 +114,15 @@ app.get('/api/shipping', (req, res) => {
   res.json({ shipping, free: shipping === 0, freeAbove: S.freeAbove, prazo });
 });
 
-// Recebe erros do frontend e os registra (aparecem no log do servidor/Render).
+// Recebe erros do frontend e os registra (aparecem no log do servidor/Render + Sentry).
 app.post('/api/client-error', (req, res) => {
-  console.error('[client-error]', JSON.stringify(req.body || {}).slice(0, 600));
+  const info = JSON.stringify(req.body || {}).slice(0, 600);
+  logger.error('client-error', { info });
+  if (sentryEnabled) {
+    const b = req.body || {};
+    const e = new Error(b.message || 'client-error'); e.name = 'ClientError';
+    captureException(e, { tags: { source: 'frontend' }, request: { url: b.url } });
+  }
   res.sendStatus(204);
 });
 
@@ -130,6 +138,14 @@ app.get('/sitemap.xml', async (_req, res) => {
     urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') + '\n</urlset>');
 });
 
+// PWA: o service worker precisa de escopo raiz e não pode ser cacheado agressivamente
+// (senão um app novo demora a chegar). Servido antes do static para controlar os headers.
+app.get('/sw.js', (_req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.set('Service-Worker-Allowed', '/');
+  res.type('application/javascript').sendFile(path.join(__dirname, '..', 'public', 'sw.js'));
+});
+
 // Frontend: estáticos (sem auto-index — o SSR cuida das páginas HTML)
 app.use(express.static(path.join(__dirname, '..', 'public'), { index: false, maxAge: '7d', etag: true }));
 app.get('*', async (req, res, next) => {
@@ -141,10 +157,13 @@ app.get('*', async (req, res, next) => {
 });
 
 // Handler de erros — não vaza detalhes internos ao cliente (só mensagens de erros 4xx).
-app.use((err, _req, res, _next) => {
-  console.error('[erro]', err && err.stack ? err.stack : err);
+app.use((err, req, res, _next) => {
+  const status = err.status || 500;
+  logger.error('unhandled', { status, path: req.path, method: req.method, msg: err && err.message, stack: err && err.stack });
+  // Só erros de servidor (5xx) vão ao Sentry — 4xx são validação/uso normal.
+  if (status >= 500) captureException(err, { tags: { kind: 'http' }, request: { url: req.originalUrl, method: req.method } });
   const expose = !!err.status && err.status < 500;
-  res.status(err.status || 500).json({ error: expose ? err.message : 'Erro interno do servidor.' });
+  res.status(status).json({ error: expose ? err.message : 'Erro interno do servidor.' });
 });
 
 // --- Verificações de go-live (ativam quando MBV_DEMO_MODE=false) ---
@@ -197,5 +216,14 @@ if (require.main === module) {
       Promise.resolve(db.end && db.end()).finally(() => process.exit(0));
     });
     setTimeout(() => process.exit(0), 8000).unref();
+  });
+  // Rede de segurança do processo: registra + reporta antes de qualquer crash silencioso.
+  process.on('unhandledRejection', (reason) => {
+    logger.error('unhandledRejection', { msg: reason && reason.message, stack: reason && reason.stack });
+    captureException(reason instanceof Error ? reason : new Error(String(reason)), { tags: { kind: 'unhandledRejection' } });
+  });
+  process.on('uncaughtException', (err) => {
+    logger.error('uncaughtException', { msg: err.message, stack: err.stack });
+    captureException(err, { tags: { kind: 'uncaughtException' } });
   });
 }

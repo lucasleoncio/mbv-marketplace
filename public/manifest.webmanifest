@@ -1,0 +1,17 @@
+{
+  "name": "MBV — Movimento Brasil Verde",
+  "short_name": "MBV",
+  "description": "Marketplace de insumos sustentáveis: fertilizantes, bioinsumos, sementes e energia limpa. Pague com Cartão, Pix ou o token Neutrotan (NTR).",
+  "lang": "pt-BR",
+  "start_url": "/?utm_source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fbfbf8",
+  "theme_color": "#0f3d2e",
+  "categories": ["shopping", "business"],
+  "icons": [
+    { "src": "/img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -30,9 +30,18 @@
   {{JSONLD}}
   <link rel="icon" type="image/png" href="https://movimentobrasilverde.com/wp-content/uploads/2026/04/cropped-Icone-MBV-270x270.png" />
   <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+  <!-- PWA: instalável no celular + service worker suaviza o cold start -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="MBV" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- host das fotos institucionais (hero/logo = LCP da home): abre a conexão cedo -->
+  <link rel="preconnect" href="https://movimentobrasilverde.com" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preload" as="style" href="/css/styles.css" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>

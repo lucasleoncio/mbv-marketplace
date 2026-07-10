@@ -21,7 +21,8 @@ module.exports = {
   ALLOWED_ORIGINS: (process.env.ALLOWED_ORIGINS || 'https://mbv-marketplace.onrender.com,https://mbv-site.onrender.com,https://movimentobrasilverde.com')
     .split(',').map(s => s.trim()).filter(Boolean),
 
-  // Observabilidade opcional (defina o DSN para ativar no futuro).
+  // Observabilidade opcional: defina SENTRY_DSN para enviar erros 5xx ao Sentry.
+  // Sem a chave, tudo roda em no-op (só logs no console). Ver server/lib/observability.js.
   SENTRY_DSN: process.env.SENTRY_DSN || '',
 
   // Chave para os endpoints de jobs (ex.: carrinho abandonado), chamados por cron externo.
