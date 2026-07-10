@@ -102,6 +102,14 @@ app.get('/api/chain', (_req, res) => {
   pub.jobsReady = !!C.JOBS_SECRET;
   res.json(pub);
 });
+// Guias (blog/topo de funil) — índice e artigo por slug para a SPA.
+app.get('/api/guides', (_req, res) => res.json({ guides: require('./lib/guides').list() }));
+app.get('/api/guides/:slug', (req, res) => {
+  const g = require('./lib/guides').get(req.params.slug);
+  if (!g) return res.status(404).json({ error: 'Guia não encontrado.' });
+  res.json({ guide: g });
+});
+
 // Estimativa de frete e prazo por CEP (usado na página do produto e no carrinho).
 app.get('/api/shipping', (req, res) => {
   const { freightForCep } = require('./lib/shipping');
@@ -130,9 +138,11 @@ app.post('/api/client-error', (req, res) => {
 app.get('/sitemap.xml', async (_req, res) => {
   const cats = await db.prepare('SELECT slug FROM categories').all();
   const prods = await db.prepare('SELECT id, slug FROM products WHERE active = 1').all();
-  const urls = [APP_URL + '/', APP_URL + '/produtos',
+  const guides = require('./lib/guides').list();
+  const urls = [APP_URL + '/', APP_URL + '/produtos', APP_URL + '/guias',
     ...cats.map(c => `${APP_URL}/produtos?cat=${c.slug}`),
     ...prods.map(p => `${APP_URL}/produto/${p.id}/${p.slug || ''}`),
+    ...guides.map(g => `${APP_URL}/guia/${g.slug}`),
     ...['sobre', 'faq', 'contato', 'termos', 'privacidade', 'trocas', 'transparencia', 'afiliados', 'metodologia-co2'].map(s => `${APP_URL}/${s}`)];
   res.type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
     urls.map(u => `  <url><loc>${u}</loc></url>`).join('\n') + '\n</urlset>');

@@ -160,6 +160,23 @@ test('favoritos: adicionar, listar serializado e remover', async () => {
   assert.equal(rm.data.favorited, false);
 });
 
+test('guias: índice e artigo pela API; slug inexistente -> 404', async () => {
+  const idx = await ctx.api('GET', '/guides');
+  assert.equal(idx.status, 200);
+  assert.ok(idx.data.guides.length >= 3);
+  const slug = idx.data.guides[0].slug;
+  const one = await ctx.api('GET', '/guides/' + slug);
+  assert.equal(one.status, 200);
+  assert.ok(Array.isArray(one.data.guide.blocks) && one.data.guide.blocks.length > 0);
+  assert.equal((await ctx.api('GET', '/guides/nao-existe-xyz')).status, 404);
+});
+
+test('reposição por safra: job protegido e idempotente', async () => {
+  // sem chave configurada no demo -> 401 (JOBS_SECRET vazio)
+  const r = await ctx.api('POST', '/jobs/replenishment');
+  assert.equal(r.status, 401);
+});
+
 test('cupons: relatório é só do admin', async () => {
   assert.equal((await ctx.api('GET', '/coupons/report', { token: admin })).status, 200);
   assert.equal((await ctx.api('GET', '/coupons/report', { token: cliente })).status, 403);

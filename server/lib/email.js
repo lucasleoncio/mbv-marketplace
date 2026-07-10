@@ -99,4 +99,20 @@ async function sendBackInStock(to, product) {
   return send(to, `${product.name} voltou ao estoque — MBV`, layout('Voltou ao estoque! 🌱', body));
 }
 
-module.exports = { send, sendOrderConfirmation, sendPasswordReset, sendVerification, sendOrderShipped, sendOrderDelivered, sendAbandonedCart, sendBackInStock };
+// Reposição por safra: lembra o produtor de recomprar um insumo quando o ciclo
+// típico se aproxima (compra recorrente é o coração do agro).
+async function sendReplenishment(user, items) {
+  const list = (items || []).map(it =>
+    `<tr><td style="padding:8px 0"><b>${esc(it.name)}</b><br><span style="color:#5d6f64;font-size:13px">Última compra há ${it.days} dias</span></td>
+      <td style="padding:8px 0;text-align:right"><a href="${APP_URL}/produto/${it.product_id}" style="color:#1f6e47;font-weight:600;text-decoration:none">Comprar de novo →</a></td></tr>`
+  ).join('');
+  const body = `<p>Olá, ${esc((user.name || '').split(' ')[0])}! Chegou a época de repor os insumos da sua próxima aplicação. 🌱</p>
+    <p>Pelo seu histórico, estes itens costumam ser reaplicados por volta de agora:</p>
+    <table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:14px">${list}</table>
+    <p>Reponha com antecedência para não perder a janela — e pagando com <b>Neutrotan (NTR)</b> você ainda ganha <b>5% de desconto + cashback</b>.</p>
+    <p style="margin-top:18px"><a href="${APP_URL}/pedidos" style="background:#1f6e47;color:#fff;text-decoration:none;padding:11px 20px;border-radius:999px;font-weight:600">Repetir um pedido</a></p>
+    <p style="color:#5d6f64;font-size:12px;margin-top:16px">Você recebe este lembrete por ter comprado no MBV. Para não receber mais, responda este e-mail.</p>`;
+  return send(user.email, 'Hora de repor seus insumos 🌱 — MBV', layout('Lembrete de reposição', body));
+}
+
+module.exports = { send, sendOrderConfirmation, sendPasswordReset, sendVerification, sendOrderShipped, sendOrderDelivered, sendAbandonedCart, sendBackInStock, sendReplenishment };

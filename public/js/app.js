@@ -24,7 +24,7 @@ function buildQuery(obj) {
   return q ? '?' + q : '';
 }
 // Título da aba por rota (leitores de tela, histórico e GA enxergam a página certa).
-const TITLES = { '': '', produtos: 'Produtos', carrinho: 'Carrinho', checkout: 'Checkout', pedidos: 'Meus pedidos', pedido: 'Pedido', conta: 'Minha conta', carteira: 'Carteira NTR', favoritos: 'Favoritos', entrar: 'Entrar', sobre: 'Sobre', contato: 'Contato', faq: 'Perguntas frequentes', privacidade: 'Privacidade', termos: 'Termos de uso', trocas: 'Trocas e devoluções', 'metodologia-co2': 'Metodologia de CO₂', afiliados: 'Programa de afiliados', transparencia: 'Transparência on-chain', comparar: 'Comparar produtos', recuperar: 'Recuperar senha', redefinir: 'Redefinir senha', verificar: 'Verificação de e-mail', admin: 'Painel Admin' };
+const TITLES = { '': '', produtos: 'Produtos', guias: 'Guias do produtor', guia: 'Guia', carrinho: 'Carrinho', checkout: 'Checkout', pedidos: 'Meus pedidos', pedido: 'Pedido', conta: 'Minha conta', carteira: 'Carteira NTR', favoritos: 'Favoritos', entrar: 'Entrar', sobre: 'Sobre', contato: 'Contato', faq: 'Perguntas frequentes', privacidade: 'Privacidade', termos: 'Termos de uso', trocas: 'Trocas e devoluções', 'metodologia-co2': 'Metodologia de CO₂', afiliados: 'Programa de afiliados', transparencia: 'Transparência on-chain', comparar: 'Comparar produtos', recuperar: 'Recuperar senha', redefinir: 'Redefinir senha', verificar: 'Verificação de e-mail', admin: 'Painel Admin' };
 function setTitle(t) { document.title = t ? `${t} · MBV Marketplace` : 'MBV — Marketplace de Insumos Sustentáveis'; }
 function mount(html, opts = {}) {
   app.innerHTML = html;
@@ -72,6 +72,8 @@ async function render() {
     if (r === '') return await Pages.home();
     if (r === 'produtos') return await Pages.catalog(query);
     if (r === 'produto') return await Pages.product(parts[1]);
+    if (r === 'guias') return await Pages.guides();
+    if (r === 'guia') return await Pages.guide(parts[1]);
     if (r === 'carrinho') return await Pages.cart();
     if (r === 'checkout') return await Pages.checkout();
     if (r === 'pedido') return await Pages.orderDetail(parts[1]);
@@ -186,8 +188,8 @@ function renderFooter() {
       </div>
       <div><h5>Categorias</h5>${Store.categories.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('')}</div>
       <div><h5>Conta</h5><a href="/conta">Minha conta</a><a href="/pedidos">Meus pedidos</a><a href="/carteira">Carteira Neutrotan (NTR)</a><a href="/favoritos">Favoritos</a></div>
-      <div><h5>Institucional</h5><a href="/sobre">Sobre</a><a href="/contato">Contato</a><a href="/faq">FAQ</a><a href="/termos">Termos de uso</a><a href="/privacidade">Privacidade</a><a href="/trocas">Trocas e devoluções</a><a href="#" id="cookiePrefs">Preferências de cookies</a></div>
-      <div><h5>Neutrotan (NTR)</h5><a href="/carteira">Saldo & extrato</a><a href="/checkout">Pagar com cripto</a><a href="/transparencia">Transparência on-chain</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">Utility token ERC-20 na rede Polygon.<br>Lastro em Carbono Orgânico Total (COT) · Valor de referência: 1 NTR = ${money(Store.rate)}.</span></div>
+      <div><h5>Institucional</h5><a href="/sobre">Sobre</a><a href="/guias">Guias do produtor</a><a href="/contato">Contato</a><a href="/faq">FAQ</a><a href="/termos">Termos de uso</a><a href="/privacidade">Privacidade</a><a href="/trocas">Trocas e devoluções</a><a href="#" id="cookiePrefs">Preferências de cookies</a></div>
+      <div><h5>Neutrotan (NTR)</h5><a href="/guia/pagar-insumos-com-token-ntr">Como funciona</a><a href="/carteira">Saldo & extrato</a><a href="/transparencia">Transparência on-chain</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">O crédito verde do MBV: pague pedidos com desconto.<br>1 NTR = ${money(Store.rate)} · <a href="/guia/pagar-insumos-com-token-ntr" style="color:var(--lime)">saiba mais</a></span></div>
     </div>
     <div class="footer-bottom"><span>© 2026 Grupo Movimento Brasil Verde · CNPJ 54.224.102/0001-10</span><span style="display:inline-flex;align-items:center;gap:16px;flex-wrap:wrap"><span>Cartão · Pix · Neutrotan (NTR) 🌱</span><span class="demo"><a class="petrus-credit" href="https://www.petrus-software.com" target="_blank" rel="noopener" aria-label="Petrus — petrus-software.com">Desenvolvido por <span class="petrus-chip"><img src="/img/petrus-logo.svg" alt="Petrus" height="15" loading="lazy"></span></a></span></span></div>
   </div></div>`;
@@ -433,6 +435,70 @@ Pages.page = function (slug) {
   }
 };
 
+/* ---------- Onboarding do NTR (linguagem de produtor) ---------- */
+// Explica o bônus de 150 NTR em reais e como usar — sem jargão de cripto.
+function showWelcomeNTR() {
+  const rate = (window.Store && Store.rate) ? Store.rate : 9.36;
+  const brl = money(150 * rate);
+  UI.openModal('Você ganhou 150 NTR de boas-vindas 🌱', `
+    <p style="margin:0 0 12px">O <b>NTR (Neutrotan)</b> é o crédito verde do MBV — pense nele como um <b>vale-insumo da loja</b>.</p>
+    <div style="background:var(--green-50);border:1px solid var(--green-100);border-radius:12px;padding:14px 16px;margin:0 0 14px">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span>Seu bônus</span><b style="font-size:18px">${mbv(150)}</b></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13.5px;margin-top:4px"><span>Vale, em reais</span><span>${brl} <span style="font-size:12px">(1 NTR = ${money(rate)})</span></span></div>
+    </div>
+    <p style="margin:0 0 8px"><b>Como usar:</b> no pagamento, escolha <b>NTR</b>. Você paga com esse saldo e ainda ganha <b>5% de desconto + 2% de volta</b>.</p>
+    <p class="muted" style="font-size:13px;margin:0 0 16px">Não precisa entender de cripto nem instalar nada — o NTR funciona como um saldo aqui na loja. Quer saber mais? <a href="/guia/pagar-insumos-com-token-ntr" style="color:var(--green-700);font-weight:600">Leia o guia rápido</a>.</p>
+    <button class="btn btn-primary btn-block" id="welcomeShop">Ver produtos para usar meu bônus</button>
+  `, { maxWidth: 460 });
+  const b = document.getElementById('welcomeShop');
+  if (b) b.addEventListener('click', () => { closeModal(); go('/produtos'); });
+}
+
+/* ---------- GUIAS (blog / topo de funil) ---------- */
+function guideBlock(b) {
+  const [type, val] = b;
+  if (type === 'h2') return `<h2>${escapeHtml(val)}</h2>`;
+  if (type === 'p') return `<p>${escapeHtml(val)}</p>`;
+  if (type === 'ul') return `<ul>${val.map(li => `<li>${escapeHtml(li)}</li>`).join('')}</ul>`;
+  if (type === 'cta') return `<p style="margin:18px 0"><a href="/produtos${buildQuery({ cat: val })}" class="btn btn-primary">Ver produtos desta categoria ${icon('arrow', 16)}</a></p>`;
+  return '';
+}
+Pages.guides = async function () {
+  loading();
+  const { guides } = await API.get('/guides');
+  mount(`<div class="container"><div style="max-width:820px;margin:0 auto">
+    <div class="breadcrumb"><a href="/">Início</a> ${icon('arrow', 13)} <span>Guias</span></div>
+    <h1 style="font-size:28px;margin-bottom:6px">Guias do produtor</h1>
+    <p class="muted" style="margin-bottom:22px">Conteúdo prático sobre manejo sustentável, bioinsumos e como aproveitar o token NTR — em linguagem de quem está no campo.</p>
+    <div style="display:grid;gap:14px">
+      ${guides.map(g => `<a href="/guia/${g.slug}" class="panel" style="display:block;text-decoration:none">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">${(g.tags || []).map(t => `<span class="badge-soft">${escapeHtml(t)}</span>`).join('')}</div>
+        <h2 style="font-size:19px;margin:0 0 6px">${escapeHtml(g.title)}</h2>
+        <p class="muted" style="font-size:14px;margin:0 0 8px">${escapeHtml(g.excerpt)}</p>
+        <span style="color:var(--green-700);font-weight:600;font-size:13px">Ler guia ${icon('arrow', 14)} <span class="muted" style="font-weight:400">· ${g.readMin} min</span></span>
+      </a>`).join('')}
+    </div>
+  </div></div>`);
+};
+Pages.guide = async function (slug) {
+  loading();
+  let data;
+  try { data = await API.get('/guides/' + slug); } catch (e) { return e.status === 404 ? Pages.notFound() : Pages.error(e); }
+  const g = data.guide;
+  setTitle(g.title);
+  mount(`<div class="container"><article class="prose" style="max-width:760px;margin:0 auto">
+    <div class="breadcrumb"><a href="/">Início</a> ${icon('arrow', 13)} <a href="/guias">Guias</a> ${icon('arrow', 13)} <span>${escapeHtml(g.title)}</span></div>
+    <h1>${escapeHtml(g.title)}</h1>
+    <p class="muted" style="font-size:13.5px">Atualizado em ${escapeHtml(g.updated)} · ${g.readMin} min de leitura</p>
+    ${g.blocks.map(guideBlock).join('')}
+    ${g.faq && g.faq.length ? `<h2>Perguntas frequentes</h2><div class="faq">${g.faq.map(([q, a]) => `<details><summary>${escapeHtml(q)}</summary><div>${escapeHtml(a)}</div></details>`).join('')}</div>` : ''}
+    <div class="panel" style="margin-top:26px;text-align:center;background:var(--green-50)">
+      <b>Pronto para aplicar?</b><p class="muted" style="font-size:14px;margin:6px 0 12px">Veja os insumos sustentáveis do MBV — pague com Cartão, Pix ou NTR (com desconto).</p>
+      <a href="/produtos" class="btn btn-primary">Ver catálogo ${icon('arrow', 16)}</a>
+    </div>
+  </article></div>`);
+};
+
 /* ---------- HOME ---------- */
 Pages.home = async function () {
   loading();
@@ -448,7 +514,7 @@ Pages.home = async function () {
         <p>Biotecnologia COT/PVE, fertilizantes ecológicos, reflorestamento e energia limpa. Compre com Cartão, Pix ou pague com o token <b>Neutrotan (NTR)</b> e ganhe desconto.</p>
         <div class="cta">
           <a href="/produtos" class="btn btn-lg" style="background:var(--lime);color:#15391f">Explorar produtos ${icon('arrow', 18)}</a>
-          <a href="/carteira" class="btn btn-lg btn-ghost">Conhecer o token NTR</a>
+          <a href="/guia/pagar-insumos-com-token-ntr" class="btn btn-lg btn-ghost">Como funciona o NTR?</a>
         </div>
         <div class="hero-stats"><div><b>30+</b><span>anos regenerando</span></div><div><b>+70%</b><span>na soja em ensaio de campo*</span></div><div><b>5%</b><span>desconto pagando em NTR</span></div></div>
         <p style="font-size:11.5px;opacity:.75;margin:10px 0 0">*Ensaio do MBV em área degradada — resultados variam conforme solo, clima e manejo.</p>
@@ -1729,11 +1795,12 @@ Pages.auth = function (query) {
     try { await fn(); } catch (e) { btn.disabled = false; btn.innerHTML = original; throw e; }
   }
   // Pós-login comum (login direto, 2FA e cadastro).
-  async function finishLogin(r, msg) {
+  async function finishLogin(r, msg, welcome) {
     Store.setSession(r.token, r.user);
     await Store.refreshFavorites(); await Store.mergeGuestToServer(); await Store.refreshCart(); await Store.refreshFavorites(); renderHeader();
     toast(msg || ('Olá, ' + r.user.name.split(' ')[0] + '!'), '', 'ok');
     go(decodeURIComponent(next).replace(/^#/, '') || '/');
+    if (welcome) setTimeout(showWelcomeNTR, 400); // onboarding do bônus, após a navegação
   }
   // Etapa 2 do login (2FA): pede o código de 6 dígitos do app autenticador.
   function renderTwofa(tmpToken) {
@@ -1824,7 +1891,7 @@ Pages.auth = function (query) {
               cpf_cnpj: box.querySelector('#r_doc').value.trim(),
               phone: box.querySelector('#r_phone').value.trim()
             });
-            await finishLogin(r, 'Conta criada! Você ganhou 150 NTR 🌱');
+            await finishLogin(r, 'Conta criada! Você ganhou 150 NTR 🌱', true);
           });
         } catch (e) { toast('Não foi possível cadastrar', e.message, 'err'); }
       });

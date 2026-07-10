@@ -127,6 +127,56 @@ async function homePage() {
   return { title: SITE_TITLE, description: SITE_DESC, canonical: APP_URL + '/', jsonld, ssr };
 }
 
+// ---------- Guias (blog / topo de funil) ----------
+const guides = require('./guides');
+function blockToHtml(b) {
+  const [type, val] = b;
+  if (type === 'h2') return `<h2>${esc(val)}</h2>`;
+  if (type === 'p') return `<p>${esc(val)}</p>`;
+  if (type === 'ul') return `<ul>${val.map(li => `<li>${esc(li)}</li>`).join('')}</ul>`;
+  if (type === 'cta') return `<p><a href="/produtos?cat=${esc(val)}">Ver produtos desta categoria no MBV</a></p>`;
+  return '';
+}
+function guidesIndexPage() {
+  const items = guides.list();
+  const url = APP_URL + '/guias';
+  const desc = 'Guias práticos do MBV sobre manejo sustentável: recuperação de solo, bioinsumos e como usar o token NTR. Conteúdo em linguagem de produtor.';
+  const jsonld = ld({ '@context': 'https://schema.org', '@type': 'Blog', name: 'Guias MBV', url,
+    blogPost: items.map(g => ({ '@type': 'BlogPosting', headline: g.title, url: `${APP_URL}/guia/${g.slug}`, datePublished: g.updated })) });
+  const ssr = `<div class="container"><section style="max-width:820px;margin:30px auto">
+    <h1>Guias do produtor</h1><p>${esc(desc)}</p>
+    <ul>${items.map(g => `<li><a href="/guia/${g.slug}">${esc(g.title)}</a> — ${esc(g.excerpt)}</li>`).join('')}</ul></section></div>`;
+  return { title: 'Guias do produtor — MBV', description: desc, canonical: url, ogTitle: 'Guias do produtor — MBV', ogDesc: desc, jsonld, ssr };
+}
+function guidePage(slug) {
+  const g = guides.get(slug);
+  if (!g) return null;
+  const url = `${APP_URL}/guia/${g.slug}`;
+  const bodyHtml = g.blocks.map(blockToHtml).join('');
+  const faqHtml = g.faq && g.faq.length ? `<h2>Perguntas frequentes</h2><dl>${g.faq.map(([q, a]) => `<dt><strong>${esc(q)}</strong></dt><dd>${esc(a)}</dd>`).join('')}</dl>` : '';
+  const jsonld = ld({
+    '@context': 'https://schema.org', '@type': 'Article',
+    headline: g.title, description: g.excerpt, datePublished: g.updated, dateModified: g.updated,
+    author: { '@type': 'Organization', name: 'MBV — Movimento Brasil Verde' },
+    publisher: { '@type': 'Organization', name: 'MBV — Movimento Brasil Verde', logo: { '@type': 'ImageObject', url: APP_URL + '/img/icon-512.png' } },
+    mainEntityOfPage: url
+  }) + ld({
+    '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Início', item: APP_URL + '/' },
+      { '@type': 'ListItem', position: 2, name: 'Guias', item: APP_URL + '/guias' },
+      { '@type': 'ListItem', position: 3, name: g.title, item: url }
+    ]
+  }) + (g.faq && g.faq.length ? ld({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: g.faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) }) : '');
+  const ssr = `<div class="container"><article style="max-width:760px;margin:30px auto">
+    <nav style="font-size:13px;color:#5d6f64">Início › <a href="/guias">Guias</a></nav>
+    <h1>${esc(g.title)}</h1>
+    <p style="color:#5d6f64;font-size:13.5px">Atualizado em ${esc(g.updated)} · ${g.readMin} min de leitura</p>
+    ${bodyHtml}${faqHtml}
+    <p style="margin-top:24px"><a href="/produtos">Ver o catálogo de insumos sustentáveis do MBV</a></p>
+  </article></div>`;
+  return { title: `${g.title} — MBV`, description: g.excerpt, canonical: url, ogTitle: g.title, ogDesc: g.excerpt, jsonld, ssr };
+}
+
 const PRIVATE = ['carrinho', 'checkout', 'conta', 'pedidos', 'pedido', 'carteira', 'favoritos', 'entrar', 'recuperar', 'redefinir', 'verificar', 'admin'];
 
 async function renderHTML(req) {
@@ -136,6 +186,8 @@ async function renderHTML(req) {
     if (parts.length === 0) d = await homePage();
     else if (parts[0] === 'produto' && parts[1]) d = await productPage(Number(parts[1]));
     else if (parts[0] === 'produtos') d = await categoryPage(req.query.cat);
+    else if (parts[0] === 'guias') d = guidesIndexPage();
+    else if (parts[0] === 'guia' && parts[1]) d = guidePage(parts[1]);
     else if (STATIC[parts[0]]) d = staticPage(parts[0]);
   } catch (e) { console.error('[seo]', e.message); }
   if (!d) {
