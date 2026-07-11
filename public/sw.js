@@ -10,10 +10,11 @@
  *
  * Bump CACHE_VERSION para invalidar tudo num novo deploy.
  */
-const CACHE_VERSION = 'mbv-v1';
+const CACHE_VERSION = 'mbv-v2';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 const PRECACHE = [
   '/css/styles.css',
+  '/js/i18n-data.js', '/js/i18n.js',
   '/js/api.js', '/js/store.js', '/js/components.js', '/js/web3.js', '/js/app.js',
   '/img/logo.svg', '/img/icon-192.png', '/manifest.webmanifest'
 ];

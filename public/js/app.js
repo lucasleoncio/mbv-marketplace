@@ -97,43 +97,72 @@ async function render() {
   }
 }
 
+/* ---------------- Seletor de idioma ---------------- */
+function langSelector() {
+  const langs = (window.MBV && MBV.langs) || [];
+  if (langs.length < 2) return '';
+  const cur = langs.find(l => l.code === MBV.lang()) || langs[0];
+  return `<div class="lang-menu" id="langMenu">
+    <button class="lang-btn" id="langBtn" aria-haspopup="true" aria-expanded="false" title="${t('lang_label')}">
+      <span aria-hidden="true">${cur.flag}</span> <span>${cur.code.toUpperCase()}</span> <span aria-hidden="true">▾</span>
+    </button>
+    <div class="lang-pop hide" id="langPop" role="menu">
+      ${langs.map(l => `<button role="menuitem" data-lang-set="${l.code}" class="${l.code === cur.code ? 'is-active' : ''}"><span aria-hidden="true">${l.flag}</span> ${escapeHtml(l.label)}</button>`).join('')}
+    </div>
+  </div>`;
+}
+function wireLangSelector() {
+  const btn = document.getElementById('langBtn');
+  const pop = document.getElementById('langPop');
+  if (!btn || !pop) return;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    pop.classList.toggle('hide');
+    btn.setAttribute('aria-expanded', String(!pop.classList.contains('hide')));
+  });
+  pop.querySelectorAll('[data-lang-set]').forEach(b => b.addEventListener('click', () => {
+    MBV.setLang(b.getAttribute('data-lang-set')); // dispara MBV_onLangChange → re-render
+  }));
+}
+
 /* ---------------- Header & Footer ---------------- */
 function renderHeader() {
   const h = document.getElementById('site-header');
   const u = Store.user;
   const cats = Store.categories.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('');
   h.innerHTML = `
-  ${Store.chain && Store.chain.demo ? `<div class="demo-strip" role="note">Ambiente de demonstração — produtos, preços e avaliações são ilustrativos.</div>` : ''}
+  ${Store.chain && Store.chain.demo ? `<div class="demo-strip" role="note">${t('demo_strip')}</div>` : ''}
   <div class="topbar"><div class="container">
-    <span class="topbar-tag">🌱 Regenerar para produzir · Desde 1992 · Frete grátis acima de R$ 500</span>
+    <span class="topbar-tag">${t('tb_tagline')}</span>
     <span class="topbar-right">
-      <a class="topbar-inst" href="https://mbv-site.onrender.com/pt/index.html" target="_blank" rel="noopener" title="Abrir o site institucional do MBV">Site institucional <span aria-hidden="true">↗</span></a>
-      <span class="topbar-greet">${u ? 'Olá, ' + escapeHtml(u.name.split(' ')[0]) : 'Insumos sustentáveis para o seu cultivo'}</span>
+      ${langSelector()}
+      <a class="topbar-inst" href="https://mbv-site.onrender.com/pt/index.html" target="_blank" rel="noopener" title="${t('tb_institutional')}">${t('tb_institutional')} <span aria-hidden="true">↗</span></a>
+      <span class="topbar-greet">${u ? t('tb_greet', { name: escapeHtml(u.name.split(' ')[0]) }) : t('tb_greet_guest')}</span>
     </span>
   </div></div>
   <div class="header"><div class="container">
     <div class="header-main">
       <a href="/" class="logo"><img class="mark" src="https://movimentobrasilverde.com/wp-content/uploads/2026/04/cropped-Icone-MBV-270x270.png" alt="MBV — Movimento Brasil Verde" width="40" height="40" onerror="this.onerror=null;this.src='/img/logo.svg'"><span>MBV<small>MOVIMENTO BRASIL VERDE</small></span></a>
       <form class="search" id="searchForm" role="search">
-        <input id="searchInput" placeholder="Buscar fertilizantes, sementes, energia solar…" aria-label="Buscar produtos" />
-        <button type="submit" aria-label="Buscar">${icon('search', 18)}</button>
+        <input id="searchInput" placeholder="${t('search_ph')}" aria-label="${t('search_aria')}" />
+        <button type="submit" aria-label="${t('search_aria')}">${icon('search', 18)}</button>
       </form>
       <div class="header-actions">
-        ${u ? `<a href="/carteira" class="wallet-chip" title="Carteira Neutrotan (NTR)"><span class="tk">${iconFill('coin', 12)}</span><span>${mbv(Store.balance)}</span></a>` : ''}
-        <a href="/carrinho" class="icon-btn" title="Carrinho">${icon('cart', 19)}<span class="lbl">Carrinho</span>${Store.cartCount ? `<span class="count">${Store.cartCount}</span>` : ''}</a>
+        ${u ? `<a href="/carteira" class="wallet-chip" title="${t('f_wallet')}"><span class="tk">${iconFill('coin', 12)}</span><span>${mbv(Store.balance)}</span></a>` : ''}
+        <a href="/carrinho" class="icon-btn" title="${t('nav_cart')}">${icon('cart', 19)}<span class="lbl">${t('nav_cart')}</span>${Store.cartCount ? `<span class="count">${Store.cartCount}</span>` : ''}</a>
         <div class="menu" id="acctMenu">
-          <button class="icon-btn" id="acctBtn" aria-haspopup="true" aria-expanded="false">${icon('user', 19)}<span class="lbl">${u ? 'Conta' : 'Entrar'}</span></button>
+          <button class="icon-btn" id="acctBtn" aria-haspopup="true" aria-expanded="false">${icon('user', 19)}<span class="lbl">${u ? t('nav_account') : t('nav_login')}</span></button>
           <div class="menu-pop hide" id="acctPop">
             ${u ? `
-              <a href="/conta">${icon('user', 17)} Minha conta</a>
-              <a href="/pedidos">${icon('box', 17)} Meus pedidos</a>
-              <a href="/carteira">${icon('wallet', 17)} Carteira NTR</a>
-              <a href="/favoritos">${iconFill('heart', 17)} Favoritos</a>
-              ${Store.isAdmin() ? `<div class="sep"></div><a href="/admin">${icon('grid', 17)} Painel Admin</a>` : ''}
-              <div class="sep"></div><button id="logoutBtn">${icon('logout', 17)} Sair</button>
+              <a href="/conta">${icon('user', 17)} ${t('m_account')}</a>
+              <a href="/pedidos">${icon('box', 17)} ${t('m_orders')}</a>
+              <a href="/carteira">${icon('wallet', 17)} ${t('m_wallet')}</a>
+              <a href="/favoritos">${iconFill('heart', 17)} ${t('m_favorites')}</a>
+              ${Store.isAdmin() ? `<div class="sep"></div><a href="/admin">${icon('grid', 17)} ${t('m_admin')}</a>` : ''}
+              <div class="sep"></div><button id="logoutBtn">${icon('logout', 17)} ${t('m_logout')}</button>
             ` : `
-              <a href="/entrar">${icon('user', 17)} Entrar</a>
-              <a href="/entrar?tab=register">${icon('plus', 17)} Criar conta</a>
+              <a href="/entrar">${icon('user', 17)} ${t('nav_login')}</a>
+              <a href="/entrar?tab=register">${icon('plus', 17)} ${t('m_register')}</a>
             `}
           </div>
         </div>
@@ -141,8 +170,8 @@ function renderHeader() {
     </div>
   </div>
   <div class="navrow"><div class="container">
-    <a href="/produtos">${icon('grid', 15)} Todos</a>${cats}
-    <a href="/produtos${buildQuery({ sort: 'price_asc' })}" style="margin-left:auto;color:var(--gold)">${iconFill('tag', 14)} Ofertas</a>
+    <a href="/produtos">${icon('grid', 15)} ${t('nav_all')}</a>${cats}
+    <a href="/produtos${buildQuery({ sort: 'price_asc' })}" style="margin-left:auto;color:var(--gold)">${iconFill('tag', 14)} ${t('nav_offers')}</a>
   </div></div>
   </div>`;
 
@@ -161,7 +190,8 @@ function renderHeader() {
   });
   // (o fechamento do menu ao clicar fora/Esc é feito pelos listeners globais delegados — 1 registro só, sem vazamento)
   const lo = document.getElementById('logoutBtn');
-  if (lo) lo.addEventListener('click', () => { Store.logout(); renderHeader(); go('/'); toast('Até logo!', 'Você saiu da sua conta.'); });
+  if (lo) lo.addEventListener('click', () => { Store.logout(); renderHeader(); go('/'); toast(t('logout_title'), t('logout_msg')); });
+  wireLangSelector();
 }
 
 function socialIcon(n) {
@@ -178,7 +208,7 @@ function renderFooter() {
     <div class="footer-grid">
       <div>
         <a href="/" class="logo" style="color:#fff;gap:0" aria-label="MBV — Movimento Brasil Verde"><img src="https://movimentobrasilverde.com/wp-content/uploads/2026/01/logo_branca.webp" alt="Movimento Brasil Verde" style="height:46px;width:auto;max-width:240px" onerror="this.style.display='none';var l=document.getElementById('footLock');if(l)l.style.display='flex'"><span id="footLock" style="display:none;align-items:center;gap:10px"><img class="mark" src="/img/logo.svg" width="40" height="40"><span>MBV<small style="color:#8fbf9e">MOVIMENTO BRASIL VERDE</small></span></span></a>
-        <p style="margin-top:14px;max-width:300px;font-size:13.5px;line-height:1.6">Marketplace de insumos que regeneram o solo e protegem o meio ambiente. Pague com Cartão, Pix ou o token <b style="color:var(--lime)">Neutrotan (NTR)</b>.</p>
+        <p style="margin-top:14px;max-width:300px;font-size:13.5px;line-height:1.6">${t('f_tagline')}</p>
         <div class="social">
           <a href="https://www.instagram.com/mbv.oficial/" target="_blank" rel="noopener" aria-label="Instagram">${socialIcon('instagram')}</a>
           <a href="https://www.facebook.com/movimentobrasilverde/" target="_blank" rel="noopener" aria-label="Facebook">${socialIcon('facebook')}</a>
@@ -186,12 +216,12 @@ function renderFooter() {
           <a href="https://www.youtube.com/@MovimentoBrasilVerde" target="_blank" rel="noopener" aria-label="YouTube">${socialIcon('youtube')}</a>
         </div>
       </div>
-      <div><h5>Categorias</h5>${Store.categories.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('')}</div>
-      <div><h5>Conta</h5><a href="/conta">Minha conta</a><a href="/pedidos">Meus pedidos</a><a href="/carteira">Carteira Neutrotan (NTR)</a><a href="/favoritos">Favoritos</a></div>
-      <div><h5>Institucional</h5><a href="/sobre">Sobre</a><a href="/guias">Guias do produtor</a><a href="/contato">Contato</a><a href="/faq">FAQ</a><a href="/termos">Termos de uso</a><a href="/privacidade">Privacidade</a><a href="/trocas">Trocas e devoluções</a><a href="#" id="cookiePrefs">Preferências de cookies</a></div>
-      <div><h5>Neutrotan (NTR)</h5><a href="/guia/pagar-insumos-com-token-ntr">Como funciona</a><a href="/carteira">Saldo & extrato</a><a href="/transparencia">Transparência on-chain</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">O crédito verde do MBV: pague pedidos com desconto.<br>1 NTR = ${money(Store.rate)} · <a href="/guia/pagar-insumos-com-token-ntr" style="color:var(--lime)">saiba mais</a></span></div>
+      <div><h5>${t('f_h_categories')}</h5>${Store.categories.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}">${escapeHtml(c.name)}</a>`).join('')}</div>
+      <div><h5>${t('f_h_account')}</h5><a href="/conta">${t('m_account')}</a><a href="/pedidos">${t('m_orders')}</a><a href="/carteira">${t('f_wallet')}</a><a href="/favoritos">${t('m_favorites')}</a></div>
+      <div><h5>${t('f_h_institutional')}</h5><a href="/sobre">${t('f_about')}</a><a href="/guias">${t('f_guides')}</a><a href="/contato">${t('f_contact')}</a><a href="/faq">${t('f_faq')}</a><a href="/termos">${t('f_terms')}</a><a href="/privacidade">${t('f_privacy')}</a><a href="/trocas">${t('f_returns')}</a><a href="#" id="cookiePrefs">${t('f_cookies')}</a></div>
+      <div><h5>${t('f_h_ntr')}</h5><a href="/guia/pagar-insumos-com-token-ntr">${t('f_ntr_how')}</a><a href="/carteira">${t('f_ntr_balance')}</a><a href="/transparencia">${t('f_ntr_transp')}</a><span style="font-size:12.5px;display:block;margin-top:8px;color:#8fbf9e">${t('f_ntr_blurb')}<br>1 NTR = ${money(Store.rate)} · <a href="/guia/pagar-insumos-com-token-ntr" style="color:var(--lime)">${t('f_ntr_more')}</a></span></div>
     </div>
-    <div class="footer-bottom"><span>© 2026 Grupo Movimento Brasil Verde · CNPJ 54.224.102/0001-10</span><span style="display:inline-flex;align-items:center;gap:16px;flex-wrap:wrap"><span>Cartão · Pix · Neutrotan (NTR) 🌱</span><span class="demo"><a class="petrus-credit" href="https://www.petrus-software.com" target="_blank" rel="noopener" aria-label="Petrus — petrus-software.com">Desenvolvido por <span class="petrus-chip"><img src="/img/petrus-logo.svg" alt="Petrus" height="15" loading="lazy"></span></a></span></span></div>
+    <div class="footer-bottom"><span>© 2026 Grupo Movimento Brasil Verde · CNPJ 54.224.102/0001-10</span><span style="display:inline-flex;align-items:center;gap:16px;flex-wrap:wrap"><span>${t('f_pay')}</span><span class="demo"><a class="petrus-credit" href="https://www.petrus-software.com" target="_blank" rel="noopener" aria-label="Petrus — petrus-software.com">${t('f_dev')} <span class="petrus-chip"><img src="/img/petrus-logo.svg" alt="Petrus" height="15" loading="lazy"></span></a></span></span></div>
   </div></div>`;
   const ck = document.getElementById('cookiePrefs');
   if (ck) ck.addEventListener('click', e => { e.preventDefault(); cookieBanner(true); });
@@ -218,14 +248,14 @@ async function addToCart(id, qty = 1) {
   if (!Store.isAuthed()) {
     Store.guestAddToCart(id, qty); renderHeader();
     track('add_to_cart', { items: [{ item_id: String(id), quantity: qty }] });
-    toast('Adicionado ao carrinho', 'Você finaliza ao entrar — seu carrinho fica salvo.', 'ok');
+    toast(t('toast_added'), t('toast_added_guest'), 'ok');
     return;
   }
   try {
     const r = await API.post('/cart', { product_id: id, quantity: qty });
     Store.cartCount = r.count; renderHeader();
     track('add_to_cart', { items: [{ item_id: String(id), quantity: qty }] });
-    toast('Adicionado ao carrinho', '', 'ok');
+    toast(t('toast_added'), '', 'ok');
   } catch (e) { toast('Ops', e.message, 'err'); }
 }
 function paintFav(id, on) {
@@ -261,10 +291,14 @@ function closeAcctMenu() {
   const acctBtn = document.getElementById('acctBtn');
   if (acctPop) acctPop.classList.add('hide');
   if (acctBtn) acctBtn.setAttribute('aria-expanded', 'false');
+  const langPop = document.getElementById('langPop');
+  const langBtn = document.getElementById('langBtn');
+  if (langPop) langPop.classList.add('hide');
+  if (langBtn) langBtn.setAttribute('aria-expanded', 'false');
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAcctMenu(); });
 document.addEventListener('click', e => {
-  // Fecha o menu da conta ao clicar em qualquer lugar (o botão usa stopPropagation para alternar).
+  // Fecha os menus (conta/idioma) ao clicar em qualquer lugar (os botões usam stopPropagation para alternar).
   closeAcctMenu();
   const add = e.target.closest('[data-add]'); if (add) { e.preventDefault(); addToCart(add.dataset.add); return; }
   const fav = e.target.closest('[data-fav]'); if (fav) { e.preventDefault(); toggleFav(fav.dataset.fav); return; }
@@ -509,15 +543,15 @@ Pages.home = async function () {
   const cats = Store.categories;
   mount(`<section class="hero hero--full" style="background:linear-gradient(135deg,rgba(11,44,32,.92),rgba(20,84,59,.5)),url('https://movimentobrasilverde.com/wp-content/uploads/2026/01/DSC06741.webp') center/cover,#0f3d2e"><div class="hero-inner">
       <div>
-        <span class="eyebrow" style="color:var(--lime)">Desde 1992 · Regenerar para produzir</span>
-        <h1>Insumos que regeneram o solo — e fazem o planeta prosperar</h1>
-        <p>Biotecnologia COT/PVE, fertilizantes ecológicos, reflorestamento e energia limpa. Compre com Cartão, Pix ou pague com o token <b>Neutrotan (NTR)</b> e ganhe desconto.</p>
+        <span class="eyebrow" style="color:var(--lime)">${t('home_eyebrow')}</span>
+        <h1>${t('home_h1')}</h1>
+        <p>${t('home_p')}</p>
         <div class="cta">
-          <a href="/produtos" class="btn btn-lg" style="background:var(--lime);color:#15391f">Explorar produtos ${icon('arrow', 18)}</a>
-          <a href="/guia/pagar-insumos-com-token-ntr" class="btn btn-lg btn-ghost">Como funciona o NTR?</a>
+          <a href="/produtos" class="btn btn-lg" style="background:var(--lime);color:#15391f">${t('home_cta1')} ${icon('arrow', 18)}</a>
+          <a href="/guia/pagar-insumos-com-token-ntr" class="btn btn-lg btn-ghost">${t('home_cta2')}</a>
         </div>
-        <div class="hero-stats"><div><b>30+</b><span>anos regenerando</span></div><div><b>+70%</b><span>na soja em ensaio de campo*</span></div><div><b>5%</b><span>desconto pagando em NTR</span></div></div>
-        <p style="font-size:11.5px;opacity:.75;margin:10px 0 0">*Ensaio do MBV em área degradada — resultados variam conforme solo, clima e manejo.</p>
+        <div class="hero-stats"><div><b>30+</b><span>${t('home_stat1_l')}</span></div><div><b>+70%</b><span>${t('home_stat2_l')}</span></div><div><b>5%</b><span>${t('home_stat3_l')}</span></div></div>
+        <p style="font-size:11.5px;opacity:.75;margin:10px 0 0">${t('home_stat_note')}</p>
       </div>
       <div class="hero-art"><div class="hero-card">
         <div class="coin">${iconFill('coin', 30)}</div>
@@ -530,29 +564,29 @@ Pages.home = async function () {
 
     <div class="container">
     <div class="banner-eco">
-      <div class="benefit"><div class="ic">${icon('truck', 22)}</div><div><b>Frete grátis</b><span>Em compras acima de R$ 500</span></div></div>
-      <div class="benefit"><div class="ic">${iconFill('coin', 22)}</div><div><b>Pague com Neutrotan (NTR)</b><span>5% de desconto + cashback</span></div></div>
-      <div class="benefit"><div class="ic">${icon('leaf', 22)}</div><div><b>Tecnologia COT/PVE</b><span>Mais produtividade, solo vivo</span></div></div>
+      <div class="benefit"><div class="ic">${icon('truck', 22)}</div><div><b>${t('home_ben1_t')}</b><span>${t('home_ben1_d')}</span></div></div>
+      <div class="benefit"><div class="ic">${iconFill('coin', 22)}</div><div><b>${t('home_ben2_t')}</b><span>${t('home_ben2_d')}</span></div></div>
+      <div class="benefit"><div class="ic">${icon('leaf', 22)}</div><div><b>${t('home_ben3_t')}</b><span>${t('home_ben3_d')}</span></div></div>
     </div>
 
     <section class="section" style="margin-top:34px">
       <div style="text-align:center;margin-bottom:18px">
-        <span class="eyebrow">Registros, pactos e parceiros</span>
-        <h2 style="font-size:22px">Nosso ecossistema</h2>
+        <span class="eyebrow">${t('home_partners_eyebrow')}</span>
+        <h2 style="font-size:22px">${t('home_partners_h')}</h2>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center">
         ${['IBAMA*', 'Pacto Global ONU', 'Future Roots', 'ICP', 'KMA Law', 'Agroeda'].map(n => `<span style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 20px;font-family:var(--display);font-weight:700;color:var(--green-800);box-shadow:var(--shadow-sm)">${n}</span>`).join('')}
       </div>
-      <p class="muted center" style="margin-top:14px;font-size:13px">*O IBAMA é órgão regulador — a menção indica atuação em conformidade ambiental, não parceria ou endosso. Participamos do Pacto Global da ONU e mantemos projetos auditáveis em blockchain. <a href="/transparencia" style="color:var(--green-700);font-weight:600">Ver transparência on-chain</a></p>
+      <p class="muted center" style="margin-top:14px;font-size:13px">${t('home_partners_note')} <a href="/transparencia" style="color:var(--green-700);font-weight:600">${t('f_ntr_transp')}</a></p>
     </section>
 
     <section class="section">
-      <div class="section-head"><div><span class="eyebrow">Navegue por</span><h2>Categorias</h2></div><a href="/produtos" class="btn btn-ghost btn-sm">Ver tudo ${icon('arrow', 15)}</a></div>
-      <div class="cat-grid">${cats.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}" class="cat-tile"><div class="ic">${icon(c.icon || 'leaf', 24)}</div><b>${escapeHtml(c.name.split(' ')[0])}</b><span>${c.product_count} itens</span></a>`).join('')}</div>
+      <div class="section-head"><div><span class="eyebrow">${t('home_cats_eyebrow')}</span><h2>${t('home_cats_h')}</h2></div><a href="/produtos" class="btn btn-ghost btn-sm">${t('home_see_all')} ${icon('arrow', 15)}</a></div>
+      <div class="cat-grid">${cats.map(c => `<a href="/produtos${buildQuery({ cat: c.slug })}" class="cat-tile"><div class="ic">${icon(c.icon || 'leaf', 24)}</div><b>${escapeHtml(c.name.split(' ')[0])}</b><span>${c.product_count} ${t('home_items')}</span></a>`).join('')}</div>
     </section>
 
     <section class="section">
-      <div class="section-head"><div><span class="eyebrow">Seleção MBV</span><h2>Destaques</h2><p>Os queridinhos de quem produz com responsabilidade.</p></div><a href="/produtos${buildQuery({ sort: 'best_sellers' })}" class="btn btn-ghost btn-sm">Mais vendidos</a></div>
+      <div class="section-head"><div><span class="eyebrow">${t('home_featured_eyebrow')}</span><h2>${t('home_featured_h')}</h2><p>${t('home_featured_p')}</p></div><a href="/produtos${buildQuery({ sort: 'best_sellers' })}" class="btn btn-ghost btn-sm">${t('home_best')}</a></div>
       <div class="product-grid">${featured.map(productCard).join('')}</div>
     </section>
 
@@ -2013,6 +2047,11 @@ function setupErrorReporting() {
   window.addEventListener('error', e => report({ type: 'error', message: e.message, source: e.filename, line: e.lineno }));
   window.addEventListener('unhandledrejection', e => report({ type: 'unhandledrejection', message: String((e.reason && e.reason.message) || e.reason) }));
 }
+
+// Troca de idioma (disparada pelo motor i18n): redesenha header, rodapé e a tela atual.
+window.MBV_onLangChange = function () {
+  try { renderHeader(); renderFooter(); render(); } catch (_) {}
+};
 
 (async function boot() {
   setupErrorReporting();

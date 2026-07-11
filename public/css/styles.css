@@ -35,6 +35,26 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .navrow a[aria-current="page"]{color:var(--green-700);font-weight:700}
 /* Faixa de ambiente de demonstração (some no go-live: MBV_DEMO_MODE=false) */
 .demo-strip{background:#fff6df;color:#7a5a10;font-size:12.5px;text-align:center;padding:5px 12px;border-bottom:1px solid #f0e3bd}
+
+/* ---- Seletor de idioma (topbar) ---- */
+.lang-menu{position:relative;display:inline-block}
+.lang-btn{background:transparent;border:0;color:inherit;font:inherit;font-size:12.5px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;padding:2px 6px;border-radius:7px}
+.lang-btn:hover{background:rgba(255,255,255,.12)}
+.lang-pop{position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px;min-width:172px;z-index:120}
+.lang-pop.hide{display:none}
+.lang-pop button{display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:0;padding:9px 11px;border-radius:9px;font-size:13.5px;color:var(--ink);cursor:pointer;text-align:left}
+.lang-pop button:hover{background:var(--green-50)}
+.lang-pop button.is-active{background:var(--green-100);font-weight:700;color:var(--green-800)}
+[dir="rtl"] .lang-pop{right:auto;left:0}
+[dir="rtl"] .lang-pop button{text-align:right}
+
+/* ---- RTL (árabe): espelhamentos pontuais ---- */
+[dir="rtl"] .topbar-right{flex-direction:row-reverse}
+[dir="rtl"] .navrow a[style*="margin-left:auto"]{margin-left:0!important;margin-right:auto!important}
+[dir="rtl"] .search button{transform:scaleX(-1)}
+[dir="rtl"] .cart-line,[dir="rtl"] .benefit{text-align:right}
+[dir="rtl"] .toast-stack{right:auto;left:20px}
+[dir="rtl"] .cookie-bar{direction:rtl}
 /* Galeria da PDP */
 .pdp-thumbs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 .pdp-thumb{width:64px;height:64px;border-radius:10px;border:2px solid var(--line);padding:0;overflow:hidden;background:#fff;cursor:pointer;transition:border-color .15s}
